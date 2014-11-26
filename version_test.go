@@ -38,6 +38,13 @@ func (s *VersionSuite) TestVersionParsing(c *C) {
 		}
 		c.Check(v, DeepEquals, expected)
 	}
+
+}
+
+func (s *VersionSuite) TestUpstreamVersionStartWithANumber(c *C) {
+	v, err := ParseVersion("3:foo.2.3.4-1")
+	c.Check(v, IsNil)
+	c.Check(err, ErrorMatches, "Invalid upstream version syntax `.*'")
 }
 
 func (s *VersionSuite) TestVersionWithNoEpochContainsNoColons(c *C) {

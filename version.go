@@ -25,12 +25,9 @@ func ParseVersion(s string) (*Version, error) {
 	epoch := 0
 	epochMatches := epochRx.FindStringSubmatch(s)
 	if epochMatches != nil {
-		var err error
-		epoch, err = strconv.Atoi(epochMatches[1])
-		if err != nil {
-			return nil, fmt.Errorf("Internal regexp error, got epoch `%s' and strconv.Atoi returned: %s", epochMatches[2],
-				err)
-		}
+		// here epochMatches[1] matches regexp [1-9][0-9]*, so it is
+		// convertible !
+		epoch, _ = strconv.Atoi(epochMatches[1])
 		s = strings.TrimPrefix(s, epochMatches[0])
 	}
 
@@ -63,4 +60,4 @@ func ParseVersion(s string) (*Version, error) {
 
 var epochRx = regexp.MustCompile(`^([1-9][0-9]*):`)
 var debRevRx = regexp.MustCompile(`-([0-9a-zA-Z\+~\.]+)$`)
-var upVerRx = regexp.MustCompile(`[0-9][0-9a-zA-Z\.\+~:\-]*`)
+var upVerRx = regexp.MustCompile(`^[0-9][0-9a-zA-Z\.\+~:\-]*$`)
