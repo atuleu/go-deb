@@ -52,7 +52,7 @@ func (s *VersionSuite) TestVersionWithNoEpochContainsNoColons(c *C) {
 
 	v, err = ParseVersion("1.2.3:4-1")
 	c.Check(v, IsNil)
-	c.Check(err, ErrorMatches, "Invalid upstream version `%s', it should not contain an colon since epoch is 0.")
+	c.Check(err, ErrorMatches, "Invalid upstream version `.*', it should not contain a colon since epoch is 0")
 }
 
 func (s *VersionSuite) TestVersionWithNoDebRevisionContainsNoHyphen(c *C) {
@@ -67,6 +67,6 @@ func (s *VersionSuite) TestVersionWithNoDebRevisionContainsNoHyphen(c *C) {
 
 	v, err = ParseVersion("3:1.2.3-4:3")
 	c.Check(v, IsNil)
-	c.Check(err, ErrorMatches, "Invalid upstream version `%s', it should not contain an hyphen since debian revision is 0")
+	c.Check(err, ErrorMatches, "Invalid upstream version `.*', it should not contain an hyphen since debian revision is 0")
 
 }

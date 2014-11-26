@@ -1,5 +1,12 @@
 package deb
 
+import (
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+)
+
 // Represents a version in the deban packaging system
 type Version struct {
 	//It is a single small unsigned integer, default to zero
@@ -15,5 +22,45 @@ type Version struct {
 }
 
 func ParseVersion(s string) (*Version, error) {
-	return nil, NotYetImplemented()
+	epoch := 0
+	epochMatches := epochRx.FindStringSubmatch(s)
+	if epochMatches != nil {
+		var err error
+		epoch, err = strconv.Atoi(epochMatches[1])
+		if err != nil {
+			return nil, fmt.Errorf("Internal regexp error, got epoch `%s' and strconv.Atoi returned: %s", epochMatches[2],
+				err)
+		}
+		s = strings.TrimPrefix(s, epochMatches[0])
+	}
+
+	res := &Version{
+		Epoch:          uint32(epoch),
+		DebianRevision: "0",
+	}
+
+	revMatches := debRevRx.FindStringSubmatch(s)
+	if revMatches != nil {
+		res.DebianRevision = revMatches[1]
+		s = strings.TrimSuffix(s, revMatches[0])
+	}
+
+	if upVerRx.MatchString(s) == false {
+		return nil, fmt.Errorf("Invalid upstream version syntax `%s'", s)
+	}
+
+	if res.Epoch == 0 && strings.Contains(s, ":") {
+		return nil, fmt.Errorf("Invalid upstream version `%s', it should not contain a colon since epoch is 0", s)
+	}
+
+	if res.DebianRevision == "0" && strings.Contains(s, "-") {
+		return nil, fmt.Errorf("Invalid upstream version `%s', it should not contain an hyphen since debian revision is 0", s)
+	}
+
+	res.UpstreamVersion = s
+	return res, nil
 }
+
+var epochRx = regexp.MustCompile(`^([1-9][0-9]*):`)
+var debRevRx = regexp.MustCompile(`-([0-9a-zA-Z\+~\.]+)$`)
+var upVerRx = regexp.MustCompile(`[0-9][0-9a-zA-Z\.\+~:\-]*`)
