@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-// Represents a version in the deban packaging system
+// Represents a version in the debian package management system. All
+// informationa are based on the Debian Policy Manual
 type Version struct {
 	//It is a single small unsigned integer, default to zero
 	Epoch uint32
@@ -17,7 +18,8 @@ type Version struct {
 	//zero and - if there is no debian revision
 	UpstreamVersion string
 
-	//The debian version, optional contains only alphanum and + - ~ if 0 it can be ommited
+	//The debian version, could be omitted. contains only alphanum and
+	//+ - ~ if 0 it can be ommited
 	DebianRevision string
 }
 
