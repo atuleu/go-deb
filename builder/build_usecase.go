@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"regexp"
 
 	deb "../"
 )
@@ -10,40 +11,6 @@ import (
 type AutobuildSourcePackage struct{}
 
 type Log string
-
-type StagingResult struct {
-	//The Reference of the build packet
-	Ref  deb.SourcePackageRef
-	Dist deb.Distribution
-}
-
-// Current status of a debian Package build
-type InBuildResult struct {
-	// Reference of the source package beeing build
-	Ref *deb.SourcePackageRef
-	// a byte reader of the current build output
-	BuildLog io.Reader
-}
-
-// Result of a debian Package build
-type BuildResult struct {
-	// The log of the build
-	BuildLog Log
-	// The parsed debian .changes files for built binaries
-	Changes *deb.ChangesFileRef
-	// The base path to find all files on the current filesystem
-	BasePath string
-}
-
-// Interface of a module that can build packages
-type DebianBuilder interface {
-	BuildPackage(p deb.SourceControlFile, output io.Writer) (*BuildResult, error)
-	InitDistribution(DistributionAndArch) error
-	UpdateDistribution(DistributionAndArch) error
-	AvailableDistributions() []deb.Distribution
-	AvailableArchitectures(d deb.Distribution) []deb.Architecture
-	CurrentBuild() *InBuildResult
-}
 
 type ArchivedSource struct {
 	Changes    *deb.ChangesFileRef
@@ -70,13 +37,11 @@ type History interface {
 }
 
 type LocalAptRepository interface {
-	ArchiveBuiltResult(BuildResult) error
-}
-
-type Interactor struct {
-	p PackageArchiver
-	b DebianBuilder
-	h History
+	ArchiveBuildResult(b *BuildResult) error
+	AddDistribution(deb.Distribution) error
+	RemoveDistribution(deb.Distribution) error
+	ListPackage(*regexp.Regexp) []deb.BinaryPackageRef
+	RemovePackage(deb.Distribution, deb.BinaryPackageRef) error
 }
 
 // Builds a deb.SourcePackage and return the result. If a io.Writer is
@@ -102,6 +67,10 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 	buildRes, err := x.b.BuildPackage(a.Dsc, buildOut)
 
 	buildRes, archErr := x.p.ArchiveBuildResult(*buildRes)
+
+	if archErr == nil {
+		archErr = x.a.ArchiveBuildResult(buildRes)
+	}
 
 	if archErr != nil {
 		x.h.RemoveFront(s.Identifier)

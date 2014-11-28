@@ -2,152 +2,17 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"testing"
 
 	deb "../"
 	. "gopkg.in/check.v1"
 )
 
-type DebianBuilderStub struct {
-	Err         error
-	Res         *BuildResult
-	BuildCalled bool
-	DistAndArch map[deb.Distribution][]deb.Architecture
-}
-
-func (b *DebianBuilderStub) BuildPackage(p deb.SourceControlFile, out io.Writer) (*BuildResult, error) {
-	b.BuildCalled = true
-	return b.Res, b.Err
-}
-
-func (b *DebianBuilderStub) InitDistribution(d DistributionAndArch) error {
-	if b.Err != nil {
-		return b.Err
-	}
-	b.DistAndArch[d.Dist] = append(b.DistAndArch[d.Dist], d.Arch)
-	return nil
-}
-
-func (b *DebianBuilderStub) UpdateDistribution(d DistributionAndArch) error {
-	archs, ok := b.DistAndArch[d.Dist]
-	if ok == false {
-		return fmt.Errorf("Distribution %s is not supported", d.Dist)
-	}
-
-	archSupported := false
-	for _, a := range archs {
-		if a == d.Arch {
-			archSupported = true
-			break
-		}
-	}
-
-	if archSupported == false {
-		return fmt.Errorf("Architecture %s of %s is not supported", d.Arch, d.Dist)
-	}
-
-	return b.Err
-
-}
-
-func (b *DebianBuilderStub) AvailableDistributions() []deb.Distribution {
-	res := []deb.Distribution{}
-
-	for d, _ := range b.DistAndArch {
-		res = append(res, d)
-	}
-
-	return res
-}
-
-func (b *DebianBuilderStub) AvailableArchitectures(d deb.Distribution) []deb.Architecture {
-	return b.DistAndArch[d]
-}
-
-func (b *DebianBuilderStub) CurrentBuild() *InBuildResult {
-	return nil
-}
-
-type PackageArchiverStub struct {
-	ArchiveSourceCalled bool
-	ArchiveResultCalled bool
-	SourceErr           error
-	BuildErr            error
-	ForceTargetDist     deb.Distribution
-	Sources             map[deb.SourcePackageRef]*ArchivedSource
-	Results             map[deb.SourcePackageRef]*BuildResult
-}
-
-func (pa *PackageArchiverStub) ArchiveSource(p deb.SourceControlFile) (*ArchivedSource, error) {
-	if pa.SourceErr != nil {
-		return nil, pa.SourceErr
-	}
-	res := &ArchivedSource{
-		Changes: &deb.ChangesFileRef{
-			Identifier: p.Identifier,
-			Suffix:     "sources",
-		},
-		Dsc:        p,
-		TargetDist: pa.ForceTargetDist,
-		BasePath:   "/dev/null",
-	}
-	pa.ArchiveSourceCalled = true
-	pa.Sources[p.Identifier] = res
-	return res, nil
-}
-
-func (p *PackageArchiverStub) ArchiveBuildResult(b BuildResult) (*BuildResult, error) {
-	if p.BuildErr != nil {
-		return nil, p.BuildErr
-	}
-
-	p.Results[b.Changes.Identifier] = &b
-	p.ArchiveResultCalled = true
-	return &b, nil
-}
-
-func (pa *PackageArchiverStub) GetArchivedSource(p deb.SourcePackageRef) (*ArchivedSource, error) {
-	a, ok := pa.Sources[p]
-	if ok == false {
-		return nil, fmt.Errorf("Could not found %s sources", p)
-	}
-	return a, nil
-}
-
-func (pa *PackageArchiverStub) GetBuildResult(p deb.SourcePackageRef) (*BuildResult, error) {
-	b, ok := pa.Results[p]
-	if ok == false {
-		return nil, fmt.Errorf("Could not found %s build results", p)
-	}
-	return b, nil
-}
-
-type HistoryStub struct {
-	hist []deb.SourcePackageRef
-}
-
-func (h *HistoryStub) Append(p deb.SourcePackageRef) {
-	h.hist = append([]deb.SourcePackageRef{p}, h.hist...)
-}
-func (h *HistoryStub) Get() []deb.SourcePackageRef {
-	return h.hist
-}
-func (h *HistoryStub) RemoveFront(p deb.SourcePackageRef) {
-	oldHist := h.hist
-	h.hist = nil
-	for _, oldP := range oldHist {
-		if oldP == p {
-			continue
-		}
-		h.hist = append(h.hist, oldP)
-	}
-}
-
 type BuildUseCaseSuite struct {
 	x               Interactor
 	builder         *DebianBuilderStub
 	packageArchiver *PackageArchiverStub
+	localApt        *LocalAptRepositoryStub
 	history         *HistoryStub
 	dsc             deb.SourceControlFile
 }
@@ -183,9 +48,11 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 	s.builder = &DebianBuilderStub{
 		DistAndArch: map[deb.Distribution][]deb.Architecture{},
 		Res: &BuildResult{
-			Changes: &deb.ChangesFileRef{
-				Identifier: s.dsc.Identifier,
-				Suffix:     "multi",
+			Changes: &deb.ChangesFile{
+				Ref: deb.ChangesFileRef{
+					Identifier: s.dsc.Identifier,
+					Suffix:     "multi",
+				},
 			},
 			BasePath: "/dev/null",
 		},
@@ -200,11 +67,15 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 	s.builder.InitDistribution(DistributionAndArch{
 		Dist: "unstable",
 		Arch: deb.Amd64,
-	})
+	}, nil)
+
+	s.localApt = &LocalAptRepositoryStub{}
+	s.localApt.AddDistribution("unstable")
 	s.history = &HistoryStub{}
 	s.x.h = s.history
 	s.x.b = s.builder
 	s.x.p = s.packageArchiver
+	s.x.a = s.localApt
 }
 
 func (s *BuildUseCaseSuite) TestWorkingWorkflow(c *C) {

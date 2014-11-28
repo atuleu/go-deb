@@ -12,7 +12,7 @@ type ChangesFileRef struct {
 
 // Represents a .changes file content
 type ChangesFile struct {
-	Ref SourcePackageRef
+	Ref ChangesFileRef
 
 	//The format of the change file itself
 	Format     Version
