@@ -63,3 +63,16 @@ func ParseVersion(s string) (*Version, error) {
 var epochRx = regexp.MustCompile(`^([1-9][0-9]*):`)
 var debRevRx = regexp.MustCompile(`-([0-9a-zA-Z\+~\.]+)$`)
 var upVerRx = regexp.MustCompile(`^[0-9][0-9a-zA-Z\.\+~:\-]*$`)
+
+func (v Version) String() string {
+	prefix := ""
+	if v.Epoch != 0 {
+		prefix = fmt.Sprintf("%d:", v.Epoch)
+	}
+	suffix := ""
+	if v.DebianRevision != "0" {
+		suffix = "-" + v.DebianRevision
+	}
+
+	return prefix + v.UpstreamVersion + suffix
+}
