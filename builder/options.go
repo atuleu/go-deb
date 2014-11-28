@@ -4,40 +4,41 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
+	"syscall"
 
 	"github.com/jessevdk/go-flags"
-	"launchpad.net/go-xdg"
 )
 
-// import "launchpad.net/go-xdg"
+// #include <sys/file.h>
+import "C"
 
 type Options struct {
+	BaseDir  string                 `json:"-"`
+	BaseFlag func(arg string) error `json:"-" short:"b" long:"basedir" description:"Base autobuild directory" default:"/var/lib/autobuild"`
+
+	MaBite string `json:"ma-bite" short:"m" long:"ma-bite" description:"Ou elle est ma bite"`
 }
 
-var configSuffix = "go-deb.builder/config.json"
+func (o *Options) confPath() string {
+	return path.Join(o.BaseDir, "etc/config.json")
+}
 
-func ensureConfigFile() (string, error) {
-	confPath, err := xdg.Config.Find(configSuffix)
+func (o *Options) Load() error {
+	f, err := os.Open(o.confPath())
 	if err != nil {
-		confPath, err = xdg.Config.Ensure(configSuffix)
-		if err != nil {
-			return "", fmt.Errorf("Could not create user config : %s", confPath)
+		if os.IsNotExist(err) {
+			return nil
 		}
+		return fmt.Errorf("Could not open config file `%s' : %s", o.confPath(), err)
 	}
-	return confPath, nil
-}
-
-func (o *Options) LoadFromXDG() error {
-	confPath, err := ensureConfigFile()
-	if err != nil {
-		return err
-	}
-	f, err := os.Open(confPath)
-	if err != nil {
-		return fmt.Errorf("Could not open config file `%s' : %s", confPath, err)
-	}
-
 	defer f.Close()
+
+	err = syscall.Flock(int(f.Fd()), C.LOCK_EX)
+	if err != nil {
+		return fmt.Errorf("Cannot lock `%s'.", o.confPath())
+	}
+	// unlock will be done at deffered f.Close()
 
 	dec := json.NewDecoder(f)
 	if err = dec.Decode(o); err != nil {
@@ -47,22 +48,36 @@ func (o *Options) LoadFromXDG() error {
 	return nil
 }
 
-func (o *Options) SaveToXDG() error {
-	confPath, err := ensureConfigFile()
-	if err != nil {
-		return err
+func (o *Options) Save() error {
+	if err := os.MkdirAll(path.Dir(o.confPath()), 0755); err != nil {
+		return fmt.Errorf("Could not create directory for file `%s':  %s", o.confPath(), err)
 	}
 
-	f, err := os.Create(confPath)
+	f, err := os.OpenFile(o.confPath(), os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		return fmt.Errorf("Could not create config file `%s':  %s", confPath, err)
+		return fmt.Errorf("Could not open config file `%s':  %s", o.confPath(), err)
 	}
-
 	defer f.Close()
 
-	dec := json.NewEncoder(f)
-	if err = dec.Encode(o); err != nil {
-		return fmt.Errorf("Could not save config to `%s': %s", confPath, err)
+	err = syscall.Flock(int(f.Fd()), C.LOCK_EX)
+	if err != nil {
+		return fmt.Errorf("Cannot lock `%s'.", o.confPath())
+	}
+
+	f.Seek(0, 0)
+	f.Truncate(0)
+
+	data, err := json.MarshalIndent(o, "", "  ")
+	if err != nil {
+		return fmt.Errorf("Could not jsonify options: %s", err)
+	}
+
+	if _, err := f.Write(data); err != nil {
+		return fmt.Errorf("Could not save data to `%s' :   %s", o.confPath(), err)
+	}
+
+	if _, err := f.WriteString("\n"); err != nil {
+		return fmt.Errorf("Could not save data to `%s' :   %s", o.confPath(), err)
 	}
 
 	return nil
@@ -71,3 +86,11 @@ func (o *Options) SaveToXDG() error {
 var options = &Options{}
 
 var parser = flags.NewParser(options, flags.Default)
+
+func init() {
+	options.BaseFlag = func(arg string) error {
+		options.BaseDir = arg
+		options.Load()
+		return nil
+	}
+}
