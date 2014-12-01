@@ -18,13 +18,14 @@ func (l *LocalAptRepositoryStub) ArchiveBuildResult(b *BuildResult) error {
 	l.ArchiveCalled = true
 	return nil
 }
-func (l *LocalAptRepositoryStub) AddDistribution(deb.Distribution) error {
+func (l *LocalAptRepositoryStub) AddDistribution(DistributionAndArch) error {
 	return nil
 }
-func (l *LocalAptRepositoryStub) RemoveDistribution(deb.Distribution) error {
+
+func (l *LocalAptRepositoryStub) RemoveDistribution(DistributionAndArch) error {
 	return nil
 }
-func (l *LocalAptRepositoryStub) ListPackage(*regexp.Regexp) []deb.BinaryPackageRef {
+func (l *LocalAptRepositoryStub) ListPackage(deb.Distribution, *regexp.Regexp) []deb.BinaryPackageRef {
 	return nil
 
 }

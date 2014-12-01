@@ -70,7 +70,10 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 	}, nil)
 
 	s.localApt = &LocalAptRepositoryStub{}
-	s.localApt.AddDistribution("unstable")
+	s.localApt.AddDistribution(DistributionAndArch{
+		Dist: "unstable",
+		Arch: "amd64",
+	})
 	s.history = &HistoryStub{}
 	s.x.h = s.history
 	s.x.b = s.builder

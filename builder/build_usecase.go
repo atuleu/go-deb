@@ -38,9 +38,9 @@ type History interface {
 
 type LocalAptRepository interface {
 	ArchiveBuildResult(b *BuildResult) error
-	AddDistribution(deb.Distribution) error
-	RemoveDistribution(deb.Distribution) error
-	ListPackage(*regexp.Regexp) []deb.BinaryPackageRef
+	AddDistribution(DistributionAndArch) error
+	RemoveDistribution(DistributionAndArch) error
+	ListPackage(deb.Distribution, *regexp.Regexp) []deb.BinaryPackageRef
 	RemovePackage(deb.Distribution, deb.BinaryPackageRef) error
 }
 
