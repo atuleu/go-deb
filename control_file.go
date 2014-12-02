@@ -13,6 +13,10 @@ type ControlField struct {
 	Data []string
 }
 
+func (c ControlField) String() string {
+	return fmt.Sprintf("%s: %#q", c.Name, c.Data)
+}
+
 // A ControlFileLexer can be used to lex any kind of debian
 // ControlFile formatted file
 type ControlFileLexer struct {

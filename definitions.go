@@ -9,12 +9,22 @@ type Component string
 type Architecture string
 
 const (
-	Any   Architecture = "any"
-	All   Architecture = "all"
-	Amd64 Architecture = "amd64"
-	I386  Architecture = "i386"
-	Armel Architecture = "armel"
+	Any    Architecture = "any"
+	All    Architecture = "all"
+	Amd64  Architecture = "amd64"
+	I386   Architecture = "i386"
+	Source Architecture = "source"
+	Armel  Architecture = "armel"
 )
+
+var ArchitectureList = map[Architecture]bool{
+	Any:    true,
+	All:    true,
+	Amd64:  true,
+	I386:   true,
+	Source: true,
+	Armel:  true,
+}
 
 type SourcePackageRef struct {
 	Source string
