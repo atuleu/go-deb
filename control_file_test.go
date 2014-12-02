@@ -26,7 +26,9 @@ Checksums-Sha1:
  d030592231249a9b158eda57beaff197220f8fd2 2726 gmock_1.6.0-2.debian.tar.gz
 `
 	fields := []ControlField{
+		ControlField{},
 		ControlField{Name: "Hash", Data: []string{"SHA1"}},
+		ControlField{},
 		ControlField{Name: "Format", Data: []string{"3.0 (quilt)"}},
 		ControlField{Name: "Maintainer", Data: []string{"Alexandre Tuleu <alexandre.tuleu.2005@polytechnique.org>"}},
 		ControlField{Name: "Standards-Version", Data: []string{"3.9.3"}},

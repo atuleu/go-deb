@@ -23,6 +23,10 @@ type ControlFileLexer struct {
 	curField ControlField
 }
 
+func IsNewParagraph(c ControlField) bool {
+	return c.Name == "" && c.Data == nil
+}
+
 func NewControlFileLexer(r io.Reader) *ControlFileLexer {
 	return &ControlFileLexer{
 		r:      bufio.NewReader(r),
@@ -66,7 +70,8 @@ func (l *ControlFileLexer) errorf(format string, args ...interface{}) lActionFn 
 
 func (l *ControlFileLexer) emitCurrent() {
 	//we check that last line of field is not empty
-	if len(l.curField.Data[len(l.curField.Data)-1]) == 0 {
+	if IsNewParagraph(l.curField) == false &&
+		len(l.curField.Data[len(l.curField.Data)-1]) == 0 {
 		l.errorf("Invalid field %v, as it ends with an empty line", l.curField)
 	}
 	l.fields <- l.curField
@@ -103,7 +108,13 @@ func lexNewParagraph(l *ControlFileLexer) lActionFn {
 		}
 	}
 
-	//TODO: should emit new paragraph
+	// This field will be such that IsNewParagraph() is true
+	l.curField = ControlField{
+		Name: "",
+		Data: nil,
+	}
+
+	l.emitCurrent()
 
 	return lexNewField
 }

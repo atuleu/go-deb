@@ -1,16 +1,13 @@
 package main
 
-import (
-	deb ".."
-)
+import deb ".."
 
 type Log string
 
 type ArchivedSource struct {
-	Changes    *deb.ChangesFileRef
-	Dsc        deb.SourceControlFile
-	TargetDist deb.Distribution
-	BasePath   string
+	Changes  *deb.ChangesFile
+	Dsc      deb.SourceControlFile
+	BasePath string
 }
 
 type PackageArchiver interface {

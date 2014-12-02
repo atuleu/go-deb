@@ -2,6 +2,7 @@ package deb
 
 import (
 	"fmt"
+	"io"
 	"net/mail"
 	"regexp"
 	"strings"
@@ -60,4 +61,11 @@ func (c *ChangesFile) BinaryPackages() ([]BinaryPackageRef, error) {
 		})
 	}
 	return res, nil
+}
+
+func ParseChangeFile(r io.Reader) (*ChangesFile, error) {
+	//TODO remove signature if needed
+	//l := NewControlFileLexer(r)
+
+	return nil, NotYetImplemented()
 }

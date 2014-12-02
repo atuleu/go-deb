@@ -24,10 +24,6 @@ type LocalReprepro struct {
 	distribpath string
 }
 
-var lrBasepath = "go-deb.builder/local_apt"
-var lrConfpath = path.Join(lrBasepath, "conf")
-var lrDistributionConfig = path.Join(lrConfpath, "distributions")
-
 func (r *LocalReprepro) tryLock() error {
 	if err := r.lock.TryLock(); err != nil {
 		return fmt.Errorf("Could not lock repository %s: %s", r.basepath, err)
@@ -129,6 +125,10 @@ func (r *LocalReprepro) writeDistributions() error {
 	}
 	return nil
 }
+
+var lrBasepath = "go-deb.builder/local_apt"
+var lrConfpath = path.Join(lrBasepath, "conf")
+var lrDistributionConfig = path.Join(lrConfpath, "distributions")
 
 func NewLocalReprepro() (*LocalReprepro, error) {
 	distConfig, err := xdg.Data.Ensure(lrDistributionConfig)

@@ -1,6 +1,9 @@
 package deb
 
-import "net/mail"
+import (
+	"fmt"
+	"net/mail"
+)
 
 // Represents a .dsc file content Only Mandatory according to the
 // Debian Policy Manual file are represented.
@@ -20,4 +23,12 @@ type SourceControlFile struct {
 	Sha1Files []FileReference
 	// A list of sha256 checksumed files
 	Sha256Files []FileReference
+}
+
+func (dsc *SourceControlFile) Filename() string {
+	return fmt.Sprintf("%s_%s.dsc", dsc.Identifier.Source, dsc.Identifier.Ver)
+}
+
+func (dsc *SourceControlFile) ChangesFilename() string {
+	return fmt.Sprintf("%s_%s_source.changes", dsc.Identifier.Source, dsc.Identifier.Ver)
 }

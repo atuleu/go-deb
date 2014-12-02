@@ -21,13 +21,15 @@ func (pa *PackageArchiverStub) ArchiveSource(p deb.SourceControlFile) (*Archived
 		return nil, pa.SourceErr
 	}
 	res := &ArchivedSource{
-		Changes: &deb.ChangesFileRef{
-			Identifier: p.Identifier,
-			Suffix:     "sources",
+		Changes: &deb.ChangesFile{
+			Ref: deb.ChangesFileRef{
+				Identifier: p.Identifier,
+				Suffix:     "sources",
+			},
+			Dist: pa.ForceTargetDist,
 		},
-		Dsc:        p,
-		TargetDist: pa.ForceTargetDist,
-		BasePath:   "/dev/null",
+		Dsc:      p,
+		BasePath: "/dev/null",
 	}
 	pa.ArchiveSourceCalled = true
 	pa.Sources[p.Identifier] = res

@@ -33,15 +33,16 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 	}
 
 	supportsTarget := false
+	targetDist := a.Changes.Dist
 	for _, d := range x.b.AvailableDistributions() {
-		if d == a.TargetDist {
+		if d == targetDist {
 			supportsTarget = true
 			break
 		}
 	}
 
 	if supportsTarget == false {
-		return nil, fmt.Errorf("Target distribution `%s' of source package `%s' is not supported", a.TargetDist, s.Identifier)
+		return nil, fmt.Errorf("Target distribution `%s' of source package `%s' is not supported", targetDist, s.Identifier)
 	}
 
 	buildRes, err := x.b.BuildPackage(a.Dsc, buildOut)
