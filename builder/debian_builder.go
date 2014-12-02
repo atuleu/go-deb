@@ -37,5 +37,4 @@ type DebianBuilder interface {
 	UpdateDistribution(DistributionAndArch) error
 	AvailableDistributions() []deb.Distribution
 	AvailableArchitectures(d deb.Distribution) []deb.Architecture
-	CurrentBuild() *InBuildResult
 }

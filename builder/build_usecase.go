@@ -75,11 +75,6 @@ func (x *Interactor) BuildAutobuildSource(p AutobuildSourcePackage, buildOut io.
 	return nil, deb.NotYetImplemented()
 }
 
-// Returns the current running build status or nil if none is currently build
-func (x *Interactor) GetCurrentBuild() *InBuildResult {
-	return nil
-}
-
 // Returns the build result of the last built of the given source package
 func (x *Interactor) GetBuildResult(s deb.SourcePackageRef) (*BuildResult, error) {
 	return x.p.GetBuildResult(s)
