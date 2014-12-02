@@ -10,7 +10,8 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-type ChangesFileSuite struct{}
+type ChangesFileSuite struct {
+}
 
 var _ = Suite(&ChangesFileSuite{})
 

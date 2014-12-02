@@ -303,9 +303,8 @@ var parseFunctions = map[string]changesFieldParser{
 	"Maintainer":       parseMaintainer,
 }
 
+//Parses an unsigned .changes file
 func ParseChangeFile(r io.Reader) (*ChangesFile, error) {
-	//TODO remove/decrypt signature if needed
-
 	l := NewControlFileLexer(r)
 
 	res := &ChangesFile{}
