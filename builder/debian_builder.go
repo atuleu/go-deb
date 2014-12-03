@@ -25,6 +25,8 @@ type BuildResult struct {
 	BuildLog Log
 	// The parsed debian .changes files for built binaries
 	Changes *deb.ChangesFile
+	// The name of the ChangeFile, relative to BasePath
+	ChangesPath string
 	// The base path to find all files on the current filesystem
 	BasePath string
 }

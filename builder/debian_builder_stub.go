@@ -47,7 +47,11 @@ func (b *DebianBuilderStub) RemoveDistribution(d DistributionAndArch) error {
 	if found == false {
 		return fmt.Errorf("Distribution `%s' doas not support architecture `%s'", d.Dist, d.Arch)
 	}
-	b.DistAndArch[d.Dist] = newArch
+	if len(newArch) > 0 {
+		b.DistAndArch[d.Dist] = newArch
+	} else {
+		delete(b.DistAndArch, d.Dist)
+	}
 	return nil
 }
 

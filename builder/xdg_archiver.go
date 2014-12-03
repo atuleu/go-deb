@@ -22,11 +22,12 @@ import (
 type XdgArchiver struct {
 	basepath string
 	lock     lockfile.Lockfile
+	a        *DebfileAuthentifier
 }
 
 var xaLockName = "go-dev.builder/archives/global.lock"
 
-func NewXdgArchiver() (*XdgArchiver, error) {
+func NewXdgArchiver(a *DebfileAuthentifier) (*XdgArchiver, error) {
 	lockpath, err := xdg.Data.Ensure(xaLockName)
 	if err != nil {
 		return nil, err
@@ -34,6 +35,7 @@ func NewXdgArchiver() (*XdgArchiver, error) {
 
 	res := &XdgArchiver{
 		basepath: path.Dir(lockpath),
+		a:        a,
 	}
 	res.lock, err = lockfile.New(lockpath)
 	if err != nil {
@@ -75,8 +77,14 @@ func (a *XdgArchiver) ensureSourceChanges(p deb.SourceControlFile) (*deb.Changes
 		if err != nil {
 			return nil, fmt.Errorf("Could not open %s: %s", sChangesPath, err)
 		}
-		return deb.ParseChangeFile(f)
+		unsigned, err := a.a.CheckAnyClearsigned(f)
+		if err != nil {
+			return nil, err
+		}
+
+		return deb.ParseChangeFile(unsigned)
 	}
+
 	if err != nil && os.IsNotExist(err) == false {
 		return nil, fmt.Errorf("Could not test existance of %s: %s", sChangesPath, err)
 	}
@@ -109,8 +117,10 @@ func (a *XdgArchiver) ensureSourceChanges(p deb.SourceControlFile) (*deb.Changes
 	if err != nil {
 		return nil, fmt.Errorf("Could not write %s: %s", sChangesPath, err)
 	}
-	cmd = exec.Command("debsign", "-S", "-no-re-sign", sChangesPath)
 
+	cmd = exec.Command("debsign", "-S", "-no-re-sign", sChangesPath)
+	//debsign should use ssh-agent, gnome-keyring-agent but not stdin
+	cmd.Stdin = nil
 	output, err = cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("Could not sign .changes file:\n%s", output)
@@ -138,12 +148,23 @@ func (a *XdgArchiver) sourceStorePath(p deb.SourcePackageRef) (string, error) {
 
 	//we check for all files
 	key := strings.ToLower(p.Source)
-	dest := path.Join(a.basepath, "sources", a.makeAbrevation(key), key)
-	return dest, nil
+	return path.Join(a.basepath, "sources", a.makeAbrevation(key), key), nil
+}
+
+func (a *XdgArchiver) binaryStorePath(p deb.SourcePackageRef) (string, error) {
+	if len(p.Source) == 0 {
+		return "", fmt.Errorf("package source should not be empty")
+	}
+	key := strings.ToLower(p.Source)
+	return path.Join(a.basepath, "binary", a.makeAbrevation(key), key), nil
 }
 
 func (a *XdgArchiver) sourceJsonName(p deb.SourcePackageRef) string {
-	return p.String() + ".json"
+	return p.String() + ".source.json"
+}
+
+func (a *XdgArchiver) binaryJsonName(p deb.SourcePackageRef) string {
+	return p.String() + ".binary.json"
 }
 
 func (a *XdgArchiver) copyFile(inPath, outPath string) error {
@@ -209,7 +230,7 @@ func (a *XdgArchiver) fileMd5(path string) ([]byte, error) {
 	return h.Sum(nil), nil
 }
 
-func (a *XdgArchiver) copyFileToStage(p deb.SourceControlFile) ([]string, string, error) {
+func (a *XdgArchiver) copySourceFileToStage(p deb.SourceControlFile) ([]string, string, error) {
 	toCopy := []string{}
 	copied := []string{}
 
@@ -221,12 +242,9 @@ func (a *XdgArchiver) copyFileToStage(p deb.SourceControlFile) ([]string, string
 	dest = path.Join(dest, "stage")
 
 	for _, f := range p.Md5Files {
-		ok, err := f.CheckFile(p.BasePath)
+		err := f.CheckFile(p.BasePath)
 		if err != nil {
 			return copied, dest, fmt.Errorf("Could not check %s: %s", f.Name, err)
-		}
-		if ok == false {
-			return copied, dest, fmt.Errorf("Invalid file %s: %s", f.Name, err)
 		}
 		if strings.Contains(f.Name, ".orig.tar") == false {
 			toCopy = append(toCopy, f.Name)
@@ -282,7 +300,7 @@ func (a *XdgArchiver) ArchiveSource(p deb.SourceControlFile) (*ArchivedSource, e
 	}
 	defer a.unlockOrPanic()
 
-	files, dest, err := a.copyFileToStage(p)
+	files, dest, err := a.copySourceFileToStage(p)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +350,56 @@ func (a *XdgArchiver) ArchiveBuildResult(b BuildResult) (*BuildResult, error) {
 	}
 	defer a.unlockOrPanic()
 
-	return nil, deb.NotYetImplemented()
+	//we ensure that the _binaries.changes exists
+	changesPath := path.Join(b.BasePath, b.ChangesPath)
+	exists, err := a.fileExists(changesPath)
+	if err != nil {
+		return nil, err
+	}
+	if exists == false {
+		return nil, fmt.Errorf("Missing required file %s", changesPath)
+	}
+
+	destPath, err := a.binaryStorePath(b.Changes.Ref.Identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, f := range b.Changes.Md5Files {
+		err := f.CheckFile(b.BasePath)
+		if err != nil {
+			return nil, err
+		}
+		sourcePath := path.Join(b.BasePath, f.Name)
+		destPath := path.Join(destPath, f.Name)
+
+		err = a.copyFile(sourcePath, destPath)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = a.copyFile(changesPath, path.Join(destPath, b.ChangesPath))
+	if err != nil {
+		return nil, err
+	}
+
+	b.BasePath = destPath
+
+	jsonDataPath := path.Join(destPath, a.binaryJsonName(b.Changes.Ref.Identifier))
+	f, err := os.Open(jsonDataPath)
+	if err != nil {
+		return nil, fmt.Errorf("Could not open %s: %s", jsonDataPath, err)
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	err = enc.Encode(b)
+	if err != nil {
+		return nil, fmt.Errorf("Could not save static data: %s", err)
+	}
+
+	return &b, nil
 }
 
 func (a *XdgArchiver) GetArchivedSource(p deb.SourcePackageRef) (*ArchivedSource, error) {
@@ -372,7 +439,25 @@ func (a *XdgArchiver) GetBuildResult(p deb.SourcePackageRef) (*BuildResult, erro
 	}
 	defer a.unlockOrPanic()
 
-	return nil, deb.NotYetImplemented()
+	basePath, err := a.binaryStorePath(p)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonDataPath := path.Join(basePath, a.binaryJsonName(p))
+	f, err := os.Open(jsonDataPath)
+	if err != nil {
+		return nil, fmt.Errorf("Could not open %s: %s", jsonDataPath, err)
+	}
+
+	dec := json.NewDecoder(f)
+	res := &BuildResult{}
+	err = dec.Decode(res)
+	if err != nil {
+		return nil, fmt.Errorf("Could not retrieve json static data: %s", err)
+	}
+
+	return res, nil
 }
 
 func init() {

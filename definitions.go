@@ -47,6 +47,6 @@ func (s SourcePackageRef) String() string {
 	return fmt.Sprintf("%s_%s", s.Source, s.Ver)
 }
 
-func (f *FileReference) CheckFile(basepath string) (bool, error) {
-	return false, NotYetImplemented()
+func (f *FileReference) CheckFile(basepath string) error {
+	return NotYetImplemented()
 }
