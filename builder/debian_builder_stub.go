@@ -14,63 +14,63 @@ type DebianBuilderStub struct {
 	DistAndArch map[deb.Distribution][]deb.Architecture
 }
 
-func (b *DebianBuilderStub) BuildPackage(p deb.SourceControlFile, out io.Writer) (*BuildResult, error) {
+func (b *DebianBuilderStub) BuildPackage(args BuildArguments, out io.Writer) (*BuildResult, error) {
 	b.BuildCalled = true
 	return b.Res, b.Err
 }
 
-func (b *DebianBuilderStub) InitDistribution(d DistributionAndArch, out io.Writer) error {
+func (b *DebianBuilderStub) InitDistribution(d deb.Distribution, a deb.Architecture, out io.Writer) error {
 	if b.Err != nil {
 		return b.Err
 	}
-	b.DistAndArch[d.Dist] = append(b.DistAndArch[d.Dist], d.Arch)
+	b.DistAndArch[d] = append(b.DistAndArch[d], a)
 	return nil
 }
 
-func (b *DebianBuilderStub) RemoveDistribution(d DistributionAndArch) error {
+func (b *DebianBuilderStub) RemoveDistribution(d deb.Distribution, a deb.Architecture) error {
 	if b.Err != nil {
 		return b.Err
 	}
-	archs, ok := b.DistAndArch[d.Dist]
+	archs, ok := b.DistAndArch[d]
 	if ok == false {
-		return fmt.Errorf("Distribution `%s' is not supported", d.Dist)
+		return fmt.Errorf("Distribution `%s' is not supported", d)
 	}
 	newArch := make([]deb.Architecture, 0, cap(archs))
 	found := false
-	for _, a := range archs {
-		if a == d.Arch {
+	for _, aa := range archs {
+		if aa == a {
 			found = true
 			continue
 		}
-		newArch = append(newArch, a)
+		newArch = append(newArch, aa)
 	}
 	if found == false {
-		return fmt.Errorf("Distribution `%s' doas not support architecture `%s'", d.Dist, d.Arch)
+		return fmt.Errorf("Distribution `%s' doas not support architecture `%s'", d, a)
 	}
 	if len(newArch) > 0 {
-		b.DistAndArch[d.Dist] = newArch
+		b.DistAndArch[d] = newArch
 	} else {
-		delete(b.DistAndArch, d.Dist)
+		delete(b.DistAndArch, d)
 	}
 	return nil
 }
 
-func (b *DebianBuilderStub) UpdateDistribution(d DistributionAndArch) error {
-	archs, ok := b.DistAndArch[d.Dist]
+func (b *DebianBuilderStub) UpdateDistribution(d deb.Distribution, a deb.Architecture) error {
+	archs, ok := b.DistAndArch[d]
 	if ok == false {
-		return fmt.Errorf("Distribution %s is not supported", d.Dist)
+		return fmt.Errorf("Distribution %s is not supported", d)
 	}
 
 	archSupported := false
-	for _, a := range archs {
-		if a == d.Arch {
+	for _, aa := range archs {
+		if aa == a {
 			archSupported = true
 			break
 		}
 	}
 
 	if archSupported == false {
-		return fmt.Errorf("Architecture %s of %s is not supported", d.Arch, d.Dist)
+		return fmt.Errorf("Architecture %s of %s is not supported", d, a)
 	}
 
 	return b.Err

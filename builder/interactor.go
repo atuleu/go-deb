@@ -3,11 +3,11 @@ package main
 import deb ".."
 
 type Interactor struct {
-	p PackageArchiver
-	a LocalAptRepository
-	b DebianBuilder
-	h History
-	u UserDistributionSupport
+	archiver        PackageArchiver
+	localRepository AptRepository
+	builder         DebianBuilder
+	history         History
+	u               UserDistributionSupport
 }
 
 func NewInteractor() (*Interactor, error) {

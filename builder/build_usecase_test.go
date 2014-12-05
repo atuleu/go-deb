@@ -64,21 +64,15 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 		ForceTargetDist: "unstable",
 	}
 
-	s.builder.InitDistribution(DistributionAndArch{
-		Dist: "unstable",
-		Arch: deb.Amd64,
-	}, nil)
+	s.builder.InitDistribution("unstable", deb.Amd64, nil)
 
 	s.localApt = &LocalAptRepositoryStub{}
-	s.localApt.AddDistribution(DistributionAndArch{
-		Dist: "unstable",
-		Arch: "amd64",
-	})
+	s.localApt.AddDistribution("unstable", deb.Amd64)
 	s.history = &HistoryStub{}
-	s.x.h = s.history
-	s.x.b = s.builder
-	s.x.p = s.packageArchiver
-	s.x.a = s.localApt
+	s.x.history = s.history
+	s.x.builder = s.builder
+	s.x.archiver = s.packageArchiver
+	s.x.localRepository = s.localApt
 }
 
 func (s *BuildUseCaseSuite) TestWorkingWorkflow(c *C) {

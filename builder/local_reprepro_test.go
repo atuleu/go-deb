@@ -58,7 +58,7 @@ func (s *LocalRepreproSuite) SetUpSuite(c *C) {
 	s.r, err = NewLocalReprepro()
 	c.Assert(err, IsNil, Commentf("Initialization error %s", err))
 
-	err = s.r.AddDistribution(DistributionAndArch{Dist: "unstable", Arch: deb.Amd64})
+	err = s.r.AddDistribution("unstable", deb.Amd64)
 	c.Assert(err, IsNil, Commentf("Initialization error %s", err))
 }
 
@@ -74,8 +74,8 @@ func (s *LocalRepreproSuite) TestLockFailure(c *C) {
 
 	c.Check(s.r.ListPackage("foo", nil), IsNil)
 	errMatch := "Could not lock repository .*: Locked by other process"
-	c.Check(s.r.AddDistribution(DistributionAndArch{Dist: "foo", Arch: deb.Amd64}), ErrorMatches, errMatch)
-	c.Check(s.r.RemoveDistribution(DistributionAndArch{Dist: "foo", Arch: deb.Amd64}), ErrorMatches, errMatch)
+	c.Check(s.r.AddDistribution("foo", deb.Amd64), ErrorMatches, errMatch)
+	c.Check(s.r.RemoveDistribution("foo", deb.Amd64), ErrorMatches, errMatch)
 	b := &BuildResult{
 		Changes: &deb.ChangesFile{
 			Dist: "unstable",

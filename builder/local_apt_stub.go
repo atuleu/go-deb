@@ -11,18 +11,18 @@ type LocalAptRepositoryStub struct {
 	Err           error
 }
 
-func (l *LocalAptRepositoryStub) ArchiveBuildResult(b *BuildResult) error {
+func (l *LocalAptRepositoryStub) ArchiveChanges(c *deb.ChangesFile) error {
 	if l.Err != nil {
 		return l.Err
 	}
 	l.ArchiveCalled = true
 	return nil
 }
-func (l *LocalAptRepositoryStub) AddDistribution(DistributionAndArch) error {
+func (l *LocalAptRepositoryStub) AddDistribution(deb.Distribution, deb.Architecture) error {
 	return nil
 }
 
-func (l *LocalAptRepositoryStub) RemoveDistribution(DistributionAndArch) error {
+func (l *LocalAptRepositoryStub) RemoveDistribution(deb.Distribution, deb.Architecture) error {
 	return nil
 }
 func (l *LocalAptRepositoryStub) ListPackage(deb.Distribution, *regexp.Regexp) []deb.BinaryPackageRef {
@@ -31,4 +31,8 @@ func (l *LocalAptRepositoryStub) ListPackage(deb.Distribution, *regexp.Regexp) [
 }
 func (l *LocalAptRepositoryStub) RemovePackage(deb.Distribution, deb.BinaryPackageRef) error {
 	return nil
+}
+
+func (l *LocalAptRepositoryStub) Access() AptRepositoryAccess {
+	return AptRepositoryAccess{}
 }

@@ -1,4 +1,4 @@
-default : check all
+default : check 
 
 check:
 	go build

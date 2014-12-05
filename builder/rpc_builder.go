@@ -70,17 +70,17 @@ func (c *ClientBuilder) initSynchronization(output io.Writer) (SyncOutputID, *by
 	return syncOut.ID, logData, errChan, nil
 }
 
-func (c *ClientBuilder) BuildPackage(p deb.SourceControlFile, output io.Writer) (*BuildResult, error) {
+func (c *ClientBuilder) BuildPackage(args BuildArguments, output io.Writer) (*BuildResult, error) {
 	id, logData, errChan, err := c.initSynchronization(output)
 	if err != nil {
 		return nil, err
 	}
-	args := BuildArgs{
-		ID: id,
-		p:  p,
+	rArgs := RpcBuildArguments{
+		ID:   id,
+		Args: args,
 	}
 	res := &BuildResult{}
-	if err = c.conn.Call("RpcBuilder.Build", args, res); err != nil {
+	if err = c.conn.Call("RpcBuilder.Build", rArgs, res); err != nil {
 		return nil, err
 	}
 	err = <-errChan
@@ -89,7 +89,7 @@ func (c *ClientBuilder) BuildPackage(p deb.SourceControlFile, output io.Writer) 
 	return res, err
 }
 
-func (c *ClientBuilder) InitDistribution(d DistributionAndArch, output io.Writer) error {
+func (c *ClientBuilder) InitDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
 	id, _, errChan, err := c.initSynchronization(output)
 	if err != nil {
 		return err
@@ -97,8 +97,8 @@ func (c *ClientBuilder) InitDistribution(d DistributionAndArch, output io.Writer
 
 	args := CreateArgs{
 		ID:   id,
-		Dist: d.Dist,
-		Arch: d.Arch,
+		Dist: d,
+		Arch: a,
 	}
 	if err = c.conn.Call("RpcBuilder.Create", args, nil); err != nil {
 		return err
@@ -107,12 +107,12 @@ func (c *ClientBuilder) InitDistribution(d DistributionAndArch, output io.Writer
 	return err
 }
 
-func (c *ClientBuilder) RemoveDistribution(d DistributionAndArch) error {
-	return c.conn.Call("RpcBuilder.Remove", d, &NoValue{})
+func (c *ClientBuilder) RemoveDistribution(d deb.Distribution, a deb.Architecture) error {
+	return c.conn.Call("RpcBuilder.Remove", RpcDistAndArchArgs{Dist: d, Arch: a}, &NoValue{})
 }
 
-func (c *ClientBuilder) UpdateDistribution(d DistributionAndArch) error {
-	return c.conn.Call("RpcBuilder.Update", d, &NoValue{})
+func (c *ClientBuilder) UpdateDistribution(d deb.Distribution, a deb.Architecture) error {
+	return c.conn.Call("RpcBuilder.Update", RpcDistAndArchArgs{Dist: d, Arch: a}, &NoValue{})
 }
 
 func (c *ClientBuilder) AvailableDistributions() []deb.Distribution {
@@ -254,12 +254,12 @@ func (b *RpcBuilder) InitSync(args NoValue, res *SyncOutputResults) error {
 	return nil
 }
 
-type BuildArgs struct {
-	ID SyncOutputID
-	p  deb.SourceControlFile
+type RpcBuildArguments struct {
+	ID   SyncOutputID
+	Args BuildArguments
 }
 
-func (b *RpcBuilder) Build(args BuildArgs, res *BuildResult) error {
+func (b *RpcBuilder) Build(args RpcBuildArguments, res *BuildResult) error {
 	b.timeoutClearer <- args.ID
 	s, ok := b.syncOutputs[args.ID]
 	if ok == false {
@@ -271,7 +271,7 @@ func (b *RpcBuilder) Build(args BuildArgs, res *BuildResult) error {
 		return fmt.Errorf("Client is not connected to synchronization output %d", args.ID)
 	}
 
-	actualRes, err := b.actualBuilder.BuildPackage(args.p, s.w)
+	actualRes, err := b.actualBuilder.BuildPackage(args.Args, s.w)
 	if err != nil {
 		return err
 	}
@@ -301,15 +301,20 @@ func (b *RpcBuilder) Create(args CreateArgs, res *NoValue) error {
 		return fmt.Errorf("Client is not connected to synchronization output %d", args.ID)
 	}
 
-	return b.actualBuilder.InitDistribution(DistributionAndArch{Dist: args.Dist, Arch: args.Arch}, writer)
+	return b.actualBuilder.InitDistribution(args.Dist, args.Arch, writer)
 }
 
-func (b *RpcBuilder) Remove(d DistributionAndArch, res *NoValue) error {
-	return b.actualBuilder.RemoveDistribution(d)
+type RpcDistAndArchArgs struct {
+	Dist deb.Distribution
+	Arch deb.Architecture
 }
 
-func (b *RpcBuilder) Update(d DistributionAndArch, res *NoValue) error {
-	return b.actualBuilder.UpdateDistribution(d)
+func (b *RpcBuilder) Remove(args RpcDistAndArchArgs, res *NoValue) error {
+	return b.actualBuilder.RemoveDistribution(args.Dist, args.Arch)
+}
+
+func (b *RpcBuilder) Update(args RpcDistAndArchArgs, res *NoValue) error {
+	return b.actualBuilder.UpdateDistribution(args.Dist, args.Arch)
 }
 
 type DistributionList struct {

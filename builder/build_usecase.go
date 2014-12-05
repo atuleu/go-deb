@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"regexp"
 
 	deb "../"
 )
@@ -16,50 +15,41 @@ type History interface {
 	RemoveFront(deb.SourcePackageRef)
 }
 
-type LocalAptRepository interface {
-	ArchiveBuildResult(b *BuildResult) error
-	AddDistribution(DistributionAndArch) error
-	RemoveDistribution(DistributionAndArch) error
-	ListPackage(deb.Distribution, *regexp.Regexp) []deb.BinaryPackageRef
-	RemovePackage(deb.Distribution, deb.BinaryPackageRef) error
-}
-
 // Builds a deb.SourcePackage and return the result. If a io.Writer is
 // passed, the build process output will be copied to it.
 func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (*BuildResult, error) {
-	a, err := x.p.ArchiveSource(s)
+	a, err := x.archiver.ArchiveSource(s)
 	if err != nil {
 		return nil, fmt.Errorf("Could not archive source package `%s': %s", s.Identifier, err)
 	}
 
-	supportsTarget := false
 	targetDist := a.Changes.Dist
-	for _, d := range x.b.AvailableDistributions() {
-		if d == targetDist {
-			supportsTarget = true
-			break
-		}
-	}
 
-	if supportsTarget == false {
+	archs := x.builder.AvailableArchitectures(targetDist)
+	if len(archs) == 0 {
 		return nil, fmt.Errorf("Target distribution `%s' of source package `%s' is not supported", targetDist, s.Identifier)
 	}
 
-	buildRes, err := x.b.BuildPackage(a.Dsc, buildOut)
+	buildRes, err := x.builder.BuildPackage(BuildArguments{
+		SourcePackage: a.Dsc,
+		Dist:          targetDist,
+		Archs:         archs,
+		Deps:          []AptRepositoryAccess{x.localRepository.Access()},
+	}, buildOut)
 
-	buildRes, archErr := x.p.ArchiveBuildResult(*buildRes)
+	buildRes, archErr := x.archiver.ArchiveBuildResult(*buildRes)
 
 	if archErr == nil {
-		archErr = x.a.ArchiveBuildResult(buildRes)
+		archErr = x.localRepository.ArchiveChanges(buildRes.Changes)
 	}
 
 	if archErr != nil {
-		x.h.RemoveFront(s.Identifier)
+		x.history.RemoveFront(s.Identifier)
 		return nil, fmt.Errorf("Failed to archive build result of `%s': %s", s.Identifier, archErr)
 	}
 
 	if err == nil {
-		x.h.Append(s.Identifier)
+		x.history.Append(s.Identifier)
 	}
 
 	return buildRes, err
@@ -77,12 +67,12 @@ func (x *Interactor) BuildAutobuildSource(p AutobuildSourcePackage, buildOut io.
 
 // Returns the build result of the last built of the given source package
 func (x *Interactor) GetBuildResult(s deb.SourcePackageRef) (*BuildResult, error) {
-	return x.p.GetBuildResult(s)
+	return x.archiver.GetBuildResult(s)
 }
 
 // Returns the deb.SourcePackageRef of the last succesfull build of the package user
 func (x *Interactor) GetLastSuccesfullUserBuild() *deb.SourcePackageRef {
-	successfulls := x.h.Get()
+	successfulls := x.history.Get()
 	if len(successfulls) == 0 {
 		return nil
 	}

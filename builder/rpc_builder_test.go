@@ -54,15 +54,21 @@ func (s *RpcBuilderSuite) TestBuild(c *C) {
 		},
 	}
 
-	b, err := s.c.BuildPackage(dsc, nil)
+	args := BuildArguments{
+		SourcePackage: dsc,
+		Dist:          "unstable",
+		Archs:         []deb.Architecture{deb.Amd64},
+		Deps:          nil,
+	}
+
+	b, err := s.c.BuildPackage(args, nil)
 	c.Check(err, IsNil)
 	c.Check(b, NotNil)
 
 }
 
 func (s *RpcBuilderSuite) TestCreateAndRemove(c *C) {
-	target := DistributionAndArch{Dist: "sid", Arch: deb.Amd64}
-	err := s.c.InitDistribution(target, nil)
+	err := s.c.InitDistribution("sid", deb.Amd64, nil)
 	c.Check(err, IsNil)
 	dists := s.c.AvailableDistributions()
 	c.Check(len(dists), Equals, 2)
@@ -74,7 +80,7 @@ func (s *RpcBuilderSuite) TestCreateAndRemove(c *C) {
 		c.Check(archs[0], Equals, deb.Amd64)
 	}
 
-	err = s.c.RemoveDistribution(target)
+	err = s.c.RemoveDistribution("sid", deb.Amd64)
 	c.Assert(err, IsNil)
 	dists = s.c.AvailableDistributions()
 	c.Assert(len(dists), Equals, 1)
@@ -82,10 +88,8 @@ func (s *RpcBuilderSuite) TestCreateAndRemove(c *C) {
 }
 
 func (s *RpcBuilderSuite) TestUpdateDistribution(c *C) {
-	target := DistributionAndArch{Dist: "unstable", Arch: deb.Amd64}
-	err := s.c.UpdateDistribution(target)
+	err := s.c.UpdateDistribution("unstable", deb.Amd64)
 	c.Check(err, IsNil)
-	target.Dist = "sid"
-	err = s.c.UpdateDistribution(target)
+	err = s.c.UpdateDistribution("sid", deb.Amd64)
 	c.Check(err, ErrorMatches, "Distribution sid is not supported")
 }

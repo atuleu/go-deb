@@ -197,33 +197,35 @@ func (r *LocalReprepro) ArchiveBuildResult(b *BuildResult) error {
 
 	return nil
 }
-func (r *LocalReprepro) AddDistribution(d DistributionAndArch) error {
-	r.dists[d.Dist] = append(r.dists[d.Dist], d.Arch)
+
+func (r *LocalReprepro) AddDistribution(d deb.Distribution, a deb.Architecture) error {
+	r.dists[d] = append(r.dists[d], a)
 	return r.writeDistributions()
 }
-func (r *LocalReprepro) RemoveDistribution(d DistributionAndArch) error {
-	archs, ok := r.dists[d.Dist]
+
+func (r *LocalReprepro) RemoveDistribution(d deb.Distribution, a deb.Architecture) error {
+	archs, ok := r.dists[d]
 	if ok == false {
-		return fmt.Errorf("Distribution %s is not supported", d.Dist)
+		return fmt.Errorf("Distribution %s is not supported", d)
 	}
 	newArchs := []deb.Architecture{}
 	found := false
-	for _, a := range archs {
-		if a == d.Arch {
+	for _, aa := range archs {
+		if aa == a {
 			found = true
 			continue
 		}
-		newArchs = append(newArchs, a)
+		newArchs = append(newArchs, aa)
 	}
 
 	if found == false {
-		return fmt.Errorf("Distribution %s does not support architecture %s", d.Dist, d.Arch)
+		return fmt.Errorf("Distribution %s does not support architecture %s", d, a)
 	}
 
 	if len(newArchs) != 0 {
-		r.dists[d.Dist] = newArchs
+		r.dists[d] = newArchs
 	} else {
-		delete(r.dists, d.Dist)
+		delete(r.dists, d)
 	}
 
 	return r.writeDistributions()

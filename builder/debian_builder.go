@@ -6,11 +6,6 @@ import (
 	deb ".."
 )
 
-type DistributionAndArch struct {
-	Dist deb.Distribution
-	Arch deb.Architecture
-}
-
 // Current status of a debian Package build
 type InBuildResult struct {
 	// Reference of the source package beeing build
@@ -31,12 +26,19 @@ type BuildResult struct {
 	BasePath string
 }
 
+type BuildArguments struct {
+	SourcePackage deb.SourceControlFile
+	Dist          deb.Distribution
+	Archs         []deb.Architecture
+	Deps          []AptRepositoryAccess
+}
+
 // Interface of a module that can build packages
 type DebianBuilder interface {
-	BuildPackage(p deb.SourceControlFile, output io.Writer) (*BuildResult, error)
-	InitDistribution(d DistributionAndArch, output io.Writer) error
-	RemoveDistribution(DistributionAndArch) error
-	UpdateDistribution(DistributionAndArch) error
+	BuildPackage(b BuildArguments, output io.Writer) (*BuildResult, error)
+	InitDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error
+	RemoveDistribution(d deb.Distribution, a deb.Architecture) error
+	UpdateDistribution(d deb.Distribution, a deb.Architecture) error
 	AvailableDistributions() []deb.Distribution
 	AvailableArchitectures(d deb.Distribution) []deb.Architecture
 }
