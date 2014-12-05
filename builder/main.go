@@ -1,9 +1,6 @@
 package main
 
-import (
-	"fmt"
-	"os"
-)
+import "os"
 
 func main() {
 	if len(os.Getenv("GENERATE_MANPAGE")) != 0 {
@@ -12,7 +9,6 @@ func main() {
 	}
 
 	if _, err := parser.Parse(); err != nil {
-		fmt.Fprintf(os.Stderr, "Got error: %s", err)
 		os.Exit(1)
 	}
 
