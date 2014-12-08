@@ -24,7 +24,10 @@ type Cowbuilder struct {
 
 	supported []deb.Architecture
 
-	semaphore chan bool
+	keepEnv     []string
+	debianDists []string
+	ubuntuDists []string
+	semaphore   chan bool
 }
 
 func NewCowbuilder(basepath string) (*Cowbuilder, error) {
@@ -77,7 +80,26 @@ func NewCowbuilder(basepath string) (*Cowbuilder, error) {
 
 	res.getSupportedArchitectures()
 
+	res.keepEnv = []string{"PATH"}
+
+	res.ubuntuDists = []string{"lucid", "maverick", "natty", "oneiric", "precise",
+		"quantal", "raring", "saucy", "trusty", "utopic", "vivid"}
+	res.debianDists = []string{"sid", "squeeze", "wheezy", "jessie", "stretch",
+		"buster", "unstable", "testing", "stable"}
+
 	return res, nil
+}
+
+func (b *Cowbuilder) maskedEnviron() []string {
+	var res []string = nil
+	for _, key := range b.keepEnv {
+		value := os.Getenv(key)
+		if len(value) == 0 {
+			continue
+		}
+		res = append(res, key+"="+value)
+	}
+	return res
 }
 
 func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildResult, error) {
@@ -87,11 +109,91 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 	return nil, deb.NotYetImplemented()
 }
 
+// returns an equivalent of .pbuilderrc run
+func (b *Cowbuilder) cowbuilderCommand(d deb.Distribution, a deb.Architecture, command string, args ...string) (*exec.Cmd, error) {
+
+	isUbuntu, err := b.isSupportedUbuntu(d)
+	if err != nil {
+		return nil, err
+	}
+
+	imagePath := b.imagePath(d, a)
+	baseCowPath := path.Join(imagePath, "base.cow")
+	buildPath := path.Join(imagePath, "build")
+	aptCache := path.Join(b.basepath, "images/aptcache")
+	ccache := path.Join(b.basepath, "images/ccache")
+	toCreate := []string{buildPath, aptCache, ccache}
+	for _, d := range toCreate {
+		err = os.MkdirAll(d, 0755)
+		if err != nil {
+			return nil, err
+		}
+	}
+	preDebootstrapOpts := fmt.Sprintf("\"--arch\" \"%s\"", a)
+	var mirror, components, mirrorsite, postDebootstrapOpts string
+	if isUbuntu == true {
+		mirror = "http://ftp.ubuntu.com/ubuntu"
+		mirrorsite = "http://ftp.ubuntu.com/ubuntu"
+		components = "main restricted universe multiverse"
+		postDebootstrapOpts = "\"--keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg\""
+	} else {
+		mirror = "http://ftp.us.debian.org/debian"
+		mirrorsite = "http://ftp.us.debian.org/debian"
+		components = "main contrib non-free"
+		postDebootstrapOpts = "\"--keyring=/usr/share/keyrings/debian-archive-keyring.gpg\""
+	}
+
+	cmd := exec.Command("cowbuilder", command)
+	cmd.Args = append(cmd.Args, args...)
+
+	cmd.Env = append(b.maskedEnviron(), fmt.Sprintf("HOME=%s", b.basepath))
+
+	f, err := os.Create(path.Join(b.basepath, ".pbuilderrc"))
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Fprintf(f, "%s=\"%s\"\n", "BASEPATH", baseCowPath)
+	fmt.Fprintf(f, "%s=\"%s\"\n", "BUILDPLACE", buildPath)
+	fmt.Fprintf(f, "%s=\"%s\"\n", "DISTRIBUTION", d)
+	fmt.Fprintf(f, "%s=\"%s\"\n", "ARCHITECTURE", a)
+	fmt.Fprintf(f, "%s=\"%s\"\n", "APTCACHE", aptCache)
+	fmt.Fprintf(f, "%s=(%s \"${DEBOOTSTRAPOPTS[@]}\" %s)\n", "DEBOOTSTRAPOPTS", preDebootstrapOpts, postDebootstrapOpts)
+	fmt.Fprintf(f, "%s=\"%s\"\n", "MIRROR", mirror)
+	fmt.Fprintf(f, "%s=\"%s\"\n", "MIRRORSITE", mirrorsite)
+	fmt.Fprintf(f, "%s=\"%s\"\n", "COMPONENTS", components)
+
+	return cmd, nil
+}
+
+func (b *Cowbuilder) setBuildResult(cmd *exec.Cmd, path string) {
+	cmd.Env = append(cmd.Env, fmt.Sprintf("BUILDRESULT=%s", path))
+}
+
+// Returns true if it is a supported ubuntu distribution, or false if
+// it is a supported Debian one.
+// if not supported returns an error
+func (b *Cowbuilder) isSupportedUbuntu(d deb.Distribution) (bool, error) {
+	for _, dd := range b.ubuntuDists {
+		if d == deb.Distribution(dd) {
+			return true, nil
+		}
+	}
+
+	for _, dd := range b.debianDists {
+		if d == deb.Distribution(dd) {
+			return false, nil
+		}
+	}
+
+	return false, fmt.Errorf("%s is not supported by this builder", d)
+}
+
 func (b *Cowbuilder) InitDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
 	b.acquire()
 	defer b.release()
 
-	imagePath, err := b.supportedDistributionPath(d, a)
+	_, err := b.supportedDistributionPath(d, a)
 	if err == nil {
 		return fmt.Errorf("Distribution %s architecture %s is already supported", d, a)
 	}
@@ -108,12 +210,14 @@ func (b *Cowbuilder) InitDistribution(d deb.Distribution, a deb.Architecture, ou
 		return fmt.Errorf("Architecture %s is not in the supported architecture list %v.", a, b.supported)
 	}
 
-	cmd := exec.Command("cowbuilder", "--create", "--buildplace", imagePath)
-	cmd.Env = []string{fmt.Sprintf("HOME=%s", b.basepath)}
+	cmd, err := b.cowbuilderCommand(d, a, "--create")
+
 	cmd.Stdout = output
 	cmd.Stderr = output
 	cmd.Stdin = nil
-
+	if output != nil {
+		fmt.Fprintf(output, "--- Executing: %v\n--- Env: %v\n", cmd.Args, cmd.Env)
+	}
 	return cmd.Run()
 }
 
