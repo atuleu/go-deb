@@ -268,7 +268,12 @@ func (b *RpcBuilder) Build(args RpcBuildArguments, res *BuildResult) error {
 		return fmt.Errorf("Client is not connected to synchronization output %d", args.ID)
 	}
 
+	log.Printf("[%d]: Building package %s for distribution %s and architectures %s\n", args.ID,
+		args.Args.SourcePackage.Identifier,
+		args.Args.Dist,
+		args.Args.Archs)
 	actualRes, err := b.actualBuilder.BuildPackage(args.Args, s.w)
+	log.Printf("[%d]: Build finished\n", args.ID)
 	if err != nil {
 		return err
 	}
@@ -293,12 +298,17 @@ func (b *RpcBuilder) Create(args CreateArgs, res *NoValue) error {
 		return fmt.Errorf("No output synchronization %d available", args.ID)
 	}
 	defer func() { b.remover <- args.ID }()
+
 	writer := s.w
 	if writer == nil {
 		return fmt.Errorf("Client is not connected to synchronization output %d", args.ID)
 	}
 
-	return b.actualBuilder.InitDistribution(args.Dist, args.Arch, writer)
+	log.Printf("[%d]: Creating distribution %s %s\n", args.ID, args.Dist, args.Arch)
+	err := b.actualBuilder.InitDistribution(args.Dist, args.Arch, writer)
+	log.Printf("[%d]: Creation of distribution %s %s finished\n", args.ID, args.Dist, args.Arch)
+
+	return err
 }
 
 type RpcDistAndArchArgs struct {
@@ -307,6 +317,7 @@ type RpcDistAndArchArgs struct {
 }
 
 func (b *RpcBuilder) Remove(args RpcDistAndArchArgs, res *NoValue) error {
+	log.Printf("Removing Distribution %s %s\n", args.Dist, args.Arch)
 	return b.actualBuilder.RemoveDistribution(args.Dist, args.Arch)
 }
 
@@ -361,7 +372,6 @@ func listenUnix(address string) (net.Listener, error) {
 		return nil, err
 	}
 
-	log.Printf("old:%v new:%v", fi.Mode(), fi.Mode()|0777)
 	err = os.Chmod(address, fi.Mode()|0777)
 	if err != nil {
 		return nil, err
