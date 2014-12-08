@@ -48,6 +48,10 @@ type InitDistributionCommand struct {
 }
 
 func (x *InitDistributionCommand) Execute(args []string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("take no arguments")
+	}
+
 	i, err := NewInteractor(options)
 	if err != nil {
 		return err
@@ -71,6 +75,10 @@ type RemoveDistributionCommand struct {
 }
 
 func (x *RemoveDistributionCommand) Execute(args []string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("take no arguments")
+	}
+
 	i, err := NewInteractor(options)
 	if err != nil {
 		return err
@@ -84,6 +92,41 @@ func (x *RemoveDistributionCommand) Execute(args []string) error {
 	}
 
 	fmt.Printf("Removed user distribution support for %s-%s\n", x.Dist, x.Arch)
+	return nil
+
+}
+
+type ListDistributionCommand struct{}
+
+func (x *ListDistributionCommand) Execute(args []string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("take no arguments")
+	}
+
+	i, err := NewInteractor(options)
+	if err != nil {
+		return err
+	}
+
+	distSupports, err := i.GetSupportedDistribution()
+	if err != nil {
+		return err
+	}
+	lineFormat := "%20s | %10s | %16s\n"
+	fmt.Printf(lineFormat, "codename", "arch", "user supported")
+	fmt.Printf("----------------------------------------------------\n")
+	for d, archs := range distSupports {
+		for a, userSupported := range archs {
+			var toPrint string
+			if userSupported == true {
+				toPrint = "builder,user"
+			} else {
+				toPrint = "builder"
+			}
+
+			fmt.Printf(lineFormat, d, a, toPrint)
+		}
+	}
 	return nil
 
 }
@@ -104,4 +147,8 @@ func init() {
 		"Remove support for a  distribution / architecture couple. Please note that without the --remove-cache, it will not remove any cached data by the actual builder, but just edit the user settings.",
 		&RemoveDistributionCommand{})
 
+	parser.AddCommand("list-dist",
+		"List current user and builder support for distribution/ architecture",
+		"List current user and builder support for distribution/ architecture",
+		&ListDistributionCommand{})
 }

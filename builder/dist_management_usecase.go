@@ -71,8 +71,32 @@ func (x *Interactor) RemoveDistributionSupport(d deb.Distribution, a deb.Archite
 	return x.builder.RemoveDistribution(d, a)
 }
 
-func (x *Interactor) GetSupportedDistribution() map[deb.Distribution][]deb.Architecture {
-	return x.userDistConfig.Supported()
+type DistributionSupportReport map[deb.Distribution]map[deb.Architecture]bool
+
+func (x *Interactor) GetSupportedDistribution() (DistributionSupportReport, error) {
+	res := make(DistributionSupportReport)
+
+	for _, d := range x.builder.AvailableDistributions() {
+		res[d] = make(map[deb.Architecture]bool)
+		for _, a := range x.builder.AvailableArchitectures(d) {
+			res[d][a] = false
+		}
+	}
+	for d, archs := range x.userDistConfig.Supported() {
+		for _, a := range archs {
+			builderArchs, okDist := res[d]
+			if okDist == false {
+				return nil, fmt.Errorf("System consistency error: user list distributions %s:%v, but builder does not support %s", d, archs, d)
+			}
+			_, okArch := builderArchs[a]
+			if okArch == false {
+				return nil, fmt.Errorf("System consistency error: user list distributions %s:%v, but builder does not support %s for %s", d, archs, a, d)
+			}
+			res[d][a] = true
+		}
+	}
+
+	return res, nil
 }
 
 func (x *Interactor) UpdateDistribution(d deb.Distribution, a deb.Architecture) error {
