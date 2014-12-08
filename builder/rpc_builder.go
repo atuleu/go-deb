@@ -109,7 +109,7 @@ func (c *ClientBuilder) InitDistribution(d deb.Distribution, a deb.Architecture,
 }
 
 func (c *ClientBuilder) RemoveDistribution(d deb.Distribution, a deb.Architecture) error {
-	return c.conn.Call("RpcBuilder.Remove", RpcDistAndArchArgs{Dist: d, Arch: a}, &NoValue{})
+	return fmt.Errorf("Client builder are not allowed to remove distribution/architecture")
 }
 
 func (c *ClientBuilder) UpdateDistribution(d deb.Distribution, a deb.Architecture) error {
@@ -314,11 +314,6 @@ func (b *RpcBuilder) Create(args CreateArgs, res *NoValue) error {
 type RpcDistAndArchArgs struct {
 	Dist deb.Distribution
 	Arch deb.Architecture
-}
-
-func (b *RpcBuilder) Remove(args RpcDistAndArchArgs, res *NoValue) error {
-	log.Printf("Removing Distribution %s %s\n", args.Dist, args.Arch)
-	return b.actualBuilder.RemoveDistribution(args.Dist, args.Arch)
 }
 
 func (b *RpcBuilder) Update(args RpcDistAndArchArgs, res *NoValue) error {

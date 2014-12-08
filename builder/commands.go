@@ -102,6 +102,6 @@ func init() {
 	parser.AddCommand("remove-dist",
 		"Remove support for a  distribution / architecture couple",
 		"Remove support for a  distribution / architecture couple. Please note that without the --remove-cache, it will not remove any cached data by the actual builder, but just edit the user settings.",
-		&InitDistributionCommand{})
+		&RemoveDistributionCommand{})
 
 }

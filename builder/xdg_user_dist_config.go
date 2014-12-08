@@ -117,11 +117,11 @@ func (c *XdgUserDistConfig) Remove(d deb.Distribution, a deb.Architecture) error
 			found = true
 			continue
 		}
-		newArchs = append(newArchs, a)
+		newArchs = append(newArchs, aa)
 	}
 
 	if found == false {
-		return fmt.Errorf("distribution %s does not supports %s", d, a)
+		return nil
 	}
 
 	if len(newArchs) == 0 {

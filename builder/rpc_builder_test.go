@@ -81,15 +81,15 @@ func (s *RpcBuilderSuite) TestCreateAndRemove(c *C) {
 	}
 
 	err = s.c.RemoveDistribution("sid", deb.Amd64)
-	c.Assert(err, IsNil)
+	c.Assert(err, ErrorMatches, "Client builder are not allowed to remove distribution/architecture")
 	dists = s.c.AvailableDistributions()
-	c.Assert(len(dists), Equals, 1)
-	c.Check(dists[0], Equals, deb.Distribution("unstable"))
 }
 
 func (s *RpcBuilderSuite) TestUpdateDistribution(c *C) {
 	err := s.c.UpdateDistribution("unstable", deb.Amd64)
 	c.Check(err, IsNil)
-	err = s.c.UpdateDistribution("sid", deb.Amd64)
-	c.Check(err, ErrorMatches, "Distribution sid is not supported")
+	//cannot use sid in that example, it may or may not have been
+	//added by other test
+	err = s.c.UpdateDistribution("buzz", deb.Amd64)
+	c.Check(err, ErrorMatches, "Distribution buzz is not supported")
 }
