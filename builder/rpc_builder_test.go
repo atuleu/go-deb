@@ -28,7 +28,7 @@ func (s *RpcBuilderSuite) SetUpSuite(c *C) {
 			deb.Distribution("unstable"): []deb.Architecture{deb.Amd64},
 		},
 	}
-	s.s = NewRpcBuilderServer(s.b, "unix", s.sock)
+	s.s = NewRpcBuilderServer(s.b, s.sock)
 	go s.s.Serve()
 	err = s.s.WaitEstablished()
 	c.Assert(err, IsNil)

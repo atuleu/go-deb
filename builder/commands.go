@@ -29,7 +29,7 @@ func (x *ServeBuilderCommand) Execute(args []string) error {
 	}
 
 	socketPath := path.Join(x.BasePath, x.Socket)
-	s := NewRpcBuilderServer(b, "unix", socketPath)
+	s := NewRpcBuilderServer(b, socketPath)
 	// in any case we will remove the path
 
 	go func() {

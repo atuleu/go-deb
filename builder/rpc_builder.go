@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -148,7 +147,6 @@ func (s syncOutput) Close() {
 	}
 	if len(s.file) != 0 {
 		os.Remove(s.file)
-		os.Remove(path.Dir(s.file))
 	}
 }
 
@@ -234,17 +232,13 @@ func (b *RpcBuilder) waitForSyncOutputConnection(l net.Listener, id SyncOutputID
 type NoValue struct{}
 
 func (b *RpcBuilder) InitSync(args NoValue, res *SyncOutputResults) error {
-	tmpDir, err := ioutil.TempDir("", "sync-socket")
-	if err != nil {
-		return err
-	}
-	tmpFile := path.Join(tmpDir, "sync.sock")
-	l, err := net.Listen("unix", tmpFile)
+	id := <-b.generator
+	tmpFile := path.Join(os.TempDir(), fmt.Sprintf("go-deb.builder-%d-%d.sock", os.Getpid(), id))
+	l, err := listenUnix(tmpFile)
 	if err != nil {
 		return err
 	}
 
-	id := <-b.generator
 	s := syncOutput{
 		id:   id,
 		file: tmpFile,
@@ -339,20 +333,40 @@ func (b *RpcBuilder) AvailableArchitectures(d deb.Distribution, res *Architectur
 }
 
 type RpcBuilderServer struct {
-	b                *RpcBuilder
-	network, address string
-	errChan          chan error
+	b       *RpcBuilder
+	address string
+	errChan chan error
 }
 
-func NewRpcBuilderServer(builder DebianBuilder, network, address string) *RpcBuilderServer {
+func NewRpcBuilderServer(builder DebianBuilder, address string) *RpcBuilderServer {
 	return &RpcBuilderServer{
 		b: &RpcBuilder{
 			actualBuilder: builder,
 		},
-		network: network,
 		address: address,
 		errChan: make(chan error),
 	}
+}
+
+func listenUnix(address string) (net.Listener, error) {
+
+	l, err := net.Listen("unix", address)
+	if err != nil {
+		return nil, err
+	}
+
+	//TODO: use a special group for this
+	fi, err := os.Stat(address)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("old:%v new:%v", fi.Mode(), fi.Mode()|0777)
+	err = os.Chmod(address, fi.Mode()|0777)
+	if err != nil {
+		return nil, err
+	}
+	return l, nil
 }
 
 func (s *RpcBuilderServer) Serve() {
@@ -364,7 +378,8 @@ func (s *RpcBuilderServer) Serve() {
 		return
 	}
 	rpc.HandleHTTP()
-	l, err := net.Listen(s.network, s.address)
+
+	l, err := listenUnix(s.address)
 	if err != nil {
 		s.errChan <- err
 		return
@@ -386,17 +401,15 @@ func (s *RpcBuilderServer) Serve() {
 
 	go s.b.manageSyncID()
 	s.errChan <- nil
-	log.Printf("Started RPC builder on %s:/%s\n", s.network, s.address)
+	log.Printf("Started RPC builder on unix:/%s\n", s.address)
 	http.Serve(l, nil)
 }
 
 func (s *RpcBuilderServer) Stop(l net.Listener) {
 	l.Close()
 	log.Printf("Stopping RPC\n")
-	if s.network == "unix" {
-		log.Printf("Removing unix:/%s\n", s.address)
-		os.Remove(s.address)
-	}
+	log.Printf("Removing unix:/%s\n", s.address)
+	os.Remove(s.address)
 }
 
 func (s *RpcBuilderServer) WaitEstablished() error {
