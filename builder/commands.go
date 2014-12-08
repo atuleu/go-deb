@@ -64,6 +64,30 @@ func (x *InitDistributionCommand) Execute(args []string) error {
 
 }
 
+type RemoveDistributionCommand struct {
+	Dist        string `long:"dist" short:"D" description:"Distribution to initilaize" required:"true"`
+	Arch        string `long:"arch" short:"A" description:"Architecture to initialize" required:"true"`
+	RemoveCache bool   `long:"remove-cache" description:"Remove cached data by the builder"`
+}
+
+func (x *RemoveDistributionCommand) Execute(args []string) error {
+	i, err := NewInteractor(options)
+	if err != nil {
+		return err
+	}
+
+	err = i.RemoveDistributionSupport(deb.Distribution(x.Dist),
+		deb.Architecture(x.Arch),
+		x.RemoveCache)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Removed user distribution support for %s-%s\n", x.Dist, x.Arch)
+	return nil
+
+}
+
 func init() {
 	parser.AddCommand("serve-builder",
 		"Starts a package builder as a RPC service.",
@@ -74,4 +98,10 @@ func init() {
 		"Init a new distribution / architecture",
 		"Inits a new distribution / architecture",
 		&InitDistributionCommand{})
+
+	parser.AddCommand("remove-dist",
+		"Remove support for a  distribution / architecture couple",
+		"Remove support for a  distribution / architecture couple. Please note that without the --remove-cache, it will not remove any cached data by the actual builder, but just edit the user settings.",
+		&InitDistributionCommand{})
+
 }

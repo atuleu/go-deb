@@ -8,7 +8,7 @@ import (
 	deb ".."
 )
 
-type UserDistributionSupport interface {
+type UserDistSupportConfig interface {
 	Add(d deb.Distribution, a deb.Architecture) error
 	Supported() map[deb.Distribution][]deb.Architecture
 	Remove(d deb.Distribution, a deb.Architecture) error
@@ -41,30 +41,30 @@ func (x *Interactor) AddDistributionSupport(d deb.Distribution, a deb.Architectu
 		err := x.builder.InitDistribution(d, a, w)
 		res.CreateLog = Log(createOut.String())
 		if err != nil {
-			res.Message = fmt.Sprintf("Could not initialize `%s' with architecture `%s'", d, a)
+			res.Message = fmt.Sprintf("Could not initialize distribution %s-%s", d, a)
 			return res, err
 		} else {
-			res.Message = fmt.Sprintf("Initialized `%s' with architecture `%s'", d, a)
+			res.Message = fmt.Sprintf("Initialized %s-%s", d, a)
 		}
-	} else {
-		res.Message = fmt.Sprintf("Distribution `%s' already supports `%s'", d, a)
 	}
 
-	err := x.u.Add(d, a)
+	err := x.userDistConfig.Add(d, a)
 	if err != nil {
 		return res, fmt.Errorf("Could not modify user settings : %s", err)
 	}
-
+	if len(res.Message) == 0 {
+		res.Message = fmt.Sprintf("Enabled user distribution support for %s %s", d, a)
+	}
 	return res, nil
 }
 
-func (x *Interactor) RemoveDistributionSupport(d deb.Distribution, a deb.Architecture, deleteCache bool) error {
-	err := x.u.Remove(d, a)
+func (x *Interactor) RemoveDistributionSupport(d deb.Distribution, a deb.Architecture, removeBuilder bool) error {
+	err := x.userDistConfig.Remove(d, a)
 	if err != nil {
 		return err
 	}
 
-	if deleteCache == false {
+	if removeBuilder == false {
 		return nil
 	}
 
@@ -72,7 +72,7 @@ func (x *Interactor) RemoveDistributionSupport(d deb.Distribution, a deb.Archite
 }
 
 func (x *Interactor) GetSupportedDistribution() map[deb.Distribution][]deb.Architecture {
-	return x.u.Supported()
+	return x.userDistConfig.Supported()
 }
 
 func (x *Interactor) UpdateDistribution(d deb.Distribution, a deb.Architecture) error {
@@ -85,7 +85,7 @@ func (x *Interactor) UpdateDistribution(d deb.Distribution, a deb.Architecture) 
 	}
 
 	if supported == false {
-		return fmt.Errorf("Distribution `%s' architecture `%s' is not supported, could not update it.", d, a)
+		return fmt.Errorf("Distribution %s-%s is not supported by builder, could not update it.", d, a)
 	}
 
 	return x.builder.UpdateDistribution(d, a)

@@ -7,7 +7,7 @@ type Interactor struct {
 	localRepository AptRepository
 	builder         DebianBuilder
 	history         History
-	u               UserDistributionSupport
+	userDistConfig  UserDistSupportConfig
 }
 
 func NewInteractor(o *Options) (*Interactor, error) {
@@ -19,6 +19,11 @@ func NewInteractor(o *Options) (*Interactor, error) {
 	res := &Interactor{}
 	var err error
 	res.builder, err = NewClientBuilder("unix", o.BuilderSocket)
+	if err != nil {
+		return nil, err
+	}
+
+	res.userDistConfig, err = NewXdgUserDistConfig()
 	if err != nil {
 		return nil, err
 	}
