@@ -10,6 +10,6 @@ type Interactor struct {
 	u               UserDistributionSupport
 }
 
-func NewInteractor() (*Interactor, error) {
+func NewInteractor(o *Options) (*Interactor, error) {
 	return nil, deb.NotYetImplemented()
 }

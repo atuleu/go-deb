@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/rpc"
 	"os"
+	"os/signal"
 	"path"
 	"time"
 
@@ -146,6 +148,7 @@ func (s syncOutput) Close() {
 	}
 	if len(s.file) != 0 {
 		os.Remove(s.file)
+		os.Remove(path.Dir(s.file))
 	}
 }
 
@@ -341,7 +344,7 @@ type RpcBuilderServer struct {
 	errChan          chan error
 }
 
-func NewRcpBuilderServer(builder DebianBuilder, network, address string) *RpcBuilderServer {
+func NewRpcBuilderServer(builder DebianBuilder, network, address string) *RpcBuilderServer {
 	return &RpcBuilderServer{
 		b: &RpcBuilder{
 			actualBuilder: builder,
@@ -367,6 +370,14 @@ func (s *RpcBuilderServer) Serve() {
 		return
 	}
 
+	signals := make(chan os.Signal)
+	signal.Notify(signals, os.Interrupt)
+	go func() {
+		for _ = range signals {
+			s.Stop(l)
+		}
+	}()
+
 	s.b.generator = make(chan SyncOutputID)
 	s.b.timeouter = make(chan SyncOutputID)
 	s.b.timeoutClearer = make(chan SyncOutputID)
@@ -375,7 +386,17 @@ func (s *RpcBuilderServer) Serve() {
 
 	go s.b.manageSyncID()
 	s.errChan <- nil
+	log.Printf("Started RPC builder on %s:/%s\n", s.network, s.address)
 	http.Serve(l, nil)
+}
+
+func (s *RpcBuilderServer) Stop(l net.Listener) {
+	l.Close()
+	log.Printf("Stopping RPC\n")
+	if s.network == "unix" {
+		log.Printf("Removing unix:/%s\n", s.address)
+		os.Remove(s.address)
+	}
 }
 
 func (s *RpcBuilderServer) WaitEstablished() error {

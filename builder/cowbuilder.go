@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"regexp"
 	"runtime"
@@ -21,6 +22,8 @@ type Cowbuilder struct {
 
 	lock lockfile.Lockfile
 
+	supported []deb.Architecture
+
 	semaphore chan bool
 }
 
@@ -28,7 +31,10 @@ func NewCowbuilder(basepath string) (*Cowbuilder, error) {
 	res := &Cowbuilder{
 		basepath: basepath,
 	}
-	var err error
+	err := os.MkdirAll(basepath, 0755)
+	if err != nil {
+		return nil, err
+	}
 
 	res.lock, err = lockfile.New(path.Join(basepath, "global.lock"))
 	if err != nil {
@@ -39,7 +45,7 @@ func NewCowbuilder(basepath string) (*Cowbuilder, error) {
 	if err != nil {
 		return nil, err
 	}
-	runtime.SetFinalizer(res.lock, res.lock.Unlock())
+	runtime.SetFinalizer(res, res.lock.Unlock())
 
 	res.semaphore = make(chan bool, 1)
 	res.release()
@@ -69,10 +75,12 @@ func NewCowbuilder(basepath string) (*Cowbuilder, error) {
 		return nil, err
 	}
 
+	res.getSupportedArchitectures()
+
 	return res, nil
 }
 
-func (b *Cowbuilder) BuildPackage(p deb.SourceControlFile, output io.Writer) (*BuildResult, error) {
+func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildResult, error) {
 	b.acquire()
 	defer b.release()
 
@@ -83,12 +91,30 @@ func (b *Cowbuilder) InitDistribution(d deb.Distribution, a deb.Architecture, ou
 	b.acquire()
 	defer b.release()
 
-	_, err := b.supportedDistributionPath(d, a)
+	imagePath, err := b.supportedDistributionPath(d, a)
 	if err == nil {
 		return fmt.Errorf("Distribution %s architecture %s is already supported", d, a)
 	}
 
-	return deb.NotYetImplemented()
+	supported := false
+	for _, aa := range b.supported {
+		if aa == a {
+			supported = true
+			break
+		}
+	}
+
+	if supported == false {
+		return fmt.Errorf("Architecture %s is not in the supported architecture list %v.", a, b.supported)
+	}
+
+	cmd := exec.Command("cowbuilder", "--create", "--buildplace", imagePath)
+	cmd.Env = []string{fmt.Sprintf("HOME=%s", b.basepath)}
+	cmd.Stdout = output
+	cmd.Stderr = output
+	cmd.Stdin = nil
+
+	return cmd.Run()
 }
 
 func (b *Cowbuilder) RemoveDistribution(d deb.Distribution, a deb.Architecture) error {
@@ -200,4 +226,15 @@ func (b *Cowbuilder) supportedDistributionPath(d deb.Distribution, a deb.Archite
 		return "", fmt.Errorf("%s is not a directory", baseCowPath)
 	}
 	return res, nil
+}
+
+func (b *Cowbuilder) getSupportedArchitectures() {
+	switch runtime.GOARCH {
+	case "amd64":
+		b.supported = []deb.Architecture{deb.Amd64, deb.I386}
+	case "386":
+		b.supported = []deb.Architecture{deb.I386}
+	case "arm":
+		b.supported = []deb.Architecture{deb.Armel}
+	}
 }
