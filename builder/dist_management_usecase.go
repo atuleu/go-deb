@@ -41,10 +41,10 @@ func (x *Interactor) AddDistributionSupport(d deb.Distribution, a deb.Architectu
 		err := x.builder.InitDistribution(d, a, w)
 		res.CreateLog = Log(createOut.String())
 		if err != nil {
-			res.Message = fmt.Sprintf("Could not initialize distribution %s-%s", d, a)
+			res.Message = fmt.Sprintf("Builder could not initialize distribution %s-%s", d, a)
 			return res, err
 		} else {
-			res.Message = fmt.Sprintf("Initialized %s-%s", d, a)
+			res.Message = fmt.Sprintf("Builder initialized %s-%s", d, a)
 		}
 	}
 
@@ -52,9 +52,13 @@ func (x *Interactor) AddDistributionSupport(d deb.Distribution, a deb.Architectu
 	if err != nil {
 		return res, fmt.Errorf("Could not modify user settings : %s", err)
 	}
-	if len(res.Message) == 0 {
-		res.Message = fmt.Sprintf("Enabled user distribution support for %s %s", d, a)
+	
+	var sep string
+	if len(res.Message) > 0 {
+		sep = "\n"
 	}
+	res.Message = res.Message + sep + fmt.Sprintf("Enabled user distribution support for %s-%s", d, a)
+
 	return res, nil
 }
 
