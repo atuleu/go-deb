@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 
 	deb "../"
 )
@@ -44,11 +45,18 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 		}
 	}
 
+	//outputs everything in a temporary directory
+	dest, err := ioutil.TempDir("", "go-deb.builder_output_")
+	if err != nil {
+		return nil, err
+	}
+
 	buildRes, err := x.builder.BuildPackage(BuildArguments{
 		SourcePackage: a.Dsc,
 		Dist:          targetDist,
 		Archs:         archs,
 		Deps:          []AptRepositoryAccess{x.localRepository.Access()},
+		Dest:          dest,
 	}, buildOut)
 
 	buildRes, archErr := x.archiver.ArchiveBuildResult(*buildRes)

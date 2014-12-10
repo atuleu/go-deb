@@ -31,6 +31,7 @@ type BuildArguments struct {
 	Dist          deb.Distribution
 	Archs         []deb.Architecture
 	Deps          []AptRepositoryAccess
+	Dest          string
 }
 
 // Interface of a module that can build packages

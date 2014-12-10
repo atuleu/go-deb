@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,6 +10,7 @@ import (
 	"path"
 	"regexp"
 	"runtime"
+	"strings"
 
 	deb ".."
 	"github.com/nightlyone/lockfile"
@@ -17,7 +19,7 @@ import (
 type Cowbuilder struct {
 	basepath  string
 	imagepath string
-	hookpath  string
+	hookspath string
 	confpath  string
 
 	lock lockfile.Lockfile
@@ -54,7 +56,7 @@ func NewCowbuilder(basepath string) (*Cowbuilder, error) {
 	res.release()
 
 	res.imagepath = path.Join(res.basepath, "images")
-	res.hookpath = path.Join(res.basepath, "hooks")
+	res.hookspath = path.Join(res.basepath, "hooks")
 	res.confpath = path.Join(res.basepath, ".pbuilderrc")
 
 	//check path
@@ -73,7 +75,7 @@ func NewCowbuilder(basepath string) (*Cowbuilder, error) {
 		return nil, err
 	}
 
-	err = os.MkdirAll(res.hookpath, 0755)
+	err = os.MkdirAll(res.hookspath, 0755)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +108,120 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 	b.acquire()
 	defer b.release()
 
-	return nil, deb.NotYetImplemented()
+	//checks we supports everything
+	for _, targetArch := range a.Archs {
+		found := false
+		for _, aArch := range b.AvailableArchitectures(a.Dist) {
+			if targetArch == aArch {
+				found = true
+				break
+			}
+		}
+		if found == false {
+			return nil, fmt.Errorf("Distribution %s-%s is not supported", a.Dist, targetArch)
+		}
+	}
+
+	//checks that the input exists
+	dscFile := path.Join(a.SourcePackage.BasePath, a.SourcePackage.Filename())
+	if _, err := os.Stat(dscFile); err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("Expected file %s, does not exists", dscFile)
+		}
+		return nil, fmt.Errorf("Could not check existence of %s", dscFile)
+	}
+
+	// ensure that destination directory exists
+	if err := os.MkdirAll(a.Dest, 0755); err != nil {
+		return nil, err
+	}
+
+	//TODO: sets hooks for dependencies
+	var buf bytes.Buffer
+	changesFiles := []string{}
+	var writer io.Writer = &buf
+	if output != nil {
+		writer = io.MultiWriter(&buf, output)
+	}
+
+	for i, arch := range a.Archs {
+		debuildopts := []string{"-us", "-uc"}
+		//only the last will build architecture-independent package
+		if i == len(a.Archs)-1 {
+			debuildopts = append(debuildopts, "-b")
+		}
+
+		cmd, err := b.cowbuilderCommand(a.Dist, arch, "--build", "--binary-arch",
+			"--debbuildopts", `"`+strings.Join(debuildopts, " ")+`"`,
+			"--buildresult", a.Dest,
+			dscFile)
+		if err != nil {
+			return nil, err
+		}
+
+		cmd.Stdin = nil
+		cmd.Stderr = writer
+		cmd.Stdout = writer
+		fmt.Fprintf(writer, "--- Execute:%v\n--- Env:%v\n", cmd.Args, cmd.Env)
+		err = cmd.Run()
+		if err != nil {
+			return nil, err
+		}
+
+		changesFileName := path.Join(a.Dest, fmt.Sprintf("%s_%s.changes", a.SourcePackage.Identifier, arch))
+		if _, err = os.Stat(changesFileName); err != nil {
+			if os.IsNotExist(err) {
+				return nil, fmt.Errorf("Missing expected result file %s", changesFileName)
+			}
+			return nil, fmt.Errorf("Could not check existence of %s: %s", changesFileName, err)
+		}
+		changesFiles = append(changesFiles, changesFileName)
+	}
+
+	res := &BuildResult{
+		BasePath: a.Dest,
+	}
+	if len(changesFiles) == 0 {
+		return nil, fmt.Errorf("No architecture where build!")
+	}
+
+	res.ChangesPath = path.Base(changesFiles[0])
+
+	if len(changesFiles) > 1 {
+		// in that case we make a multi-arch upload file
+		cmd := exec.Command("mergechanges", changesFiles...)
+		cmd.Stdin = nil
+		var mergedChanges bytes.Buffer
+		cmd.Stdout = &mergedChanges
+		cmd.Stderr = writer
+		fmt.Fprintf(writer, "--- Execute:%v\n--- Env:%v\n", cmd.Args, cmd.Env)
+		err := cmd.Run()
+		if err == nil {
+			return nil, err
+		}
+		res.ChangesPath = fmt.Sprintf("%s_multi.changes", a.SourcePackage.Identifier)
+		f, err := os.Create(path.Join(res.BasePath, res.ChangesPath))
+		if err != nil {
+			return nil, err
+		}
+		_, err = io.Copy(f, &mergedChanges)
+		if err != nil {
+			return nil, err
+		}
+	}
+	res.BuildLog = Log(buf.String())
+
+	cf, err := os.Open(path.Join(res.BasePath, res.ChangesPath))
+	if err != nil {
+		return nil, err
+	}
+
+	res.Changes, err = deb.ParseChangeFile(cf)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 // returns an equivalent of .pbuilderrc run
@@ -122,7 +237,17 @@ func (b *Cowbuilder) cowbuilderCommand(d deb.Distribution, a deb.Architecture, c
 	buildPath := path.Join(imagePath, "build")
 	aptCache := path.Join(b.basepath, "images/aptcache")
 	ccache := path.Join(b.basepath, "images/ccache")
-	toCreate := []string{buildPath, aptCache, ccache}
+
+	toClean := []string{b.confpath, b.hookspath}
+	toCreate := []string{buildPath, aptCache, ccache, b.hookspath}
+
+	for _, f := range toClean {
+		err = os.RemoveAll(f)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	for _, d := range toCreate {
 		err = os.MkdirAll(d, 0755)
 		if err != nil {
@@ -148,13 +273,14 @@ func (b *Cowbuilder) cowbuilderCommand(d deb.Distribution, a deb.Architecture, c
 
 	cmd.Env = append(b.maskedEnviron(), fmt.Sprintf("HOME=%s", b.basepath))
 
-	f, err := os.Create(path.Join(b.basepath, ".pbuilderrc"))
+	f, err := os.Create(b.confpath)
 	if err != nil {
 		return nil, err
 	}
 
 	fmt.Fprintf(f, "%s=\"%s\"\n", "BASEPATH", baseCowPath)
 	fmt.Fprintf(f, "%s=\"%s\"\n", "BUILDPLACE", buildPath)
+	fmt.Fprintf(f, "%s=\"%s\"\n", "HOOKDIR", b.hookspath)
 	fmt.Fprintf(f, "%s=\"%s\"\n", "DISTRIBUTION", d)
 	fmt.Fprintf(f, "%s=\"%s\"\n", "ARCHITECTURE", a)
 	fmt.Fprintf(f, "%s=\"%s\"\n", "APTCACHE", aptCache)
@@ -352,4 +478,9 @@ func (b *Cowbuilder) getSupportedArchitectures() {
 	case "arm":
 		b.supported = []deb.Architecture{deb.Armel}
 	}
+}
+
+func init() {
+	aptDepTracker.Add("cowbuilder")
+	aptDepTracker.Add("devscripts")
 }
