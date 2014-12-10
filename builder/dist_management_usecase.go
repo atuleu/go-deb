@@ -52,7 +52,7 @@ func (x *Interactor) AddDistributionSupport(d deb.Distribution, a deb.Architectu
 	if err != nil {
 		return res, fmt.Errorf("Could not modify user settings : %s", err)
 	}
-	
+
 	var sep string
 	if len(res.Message) > 0 {
 		sep = "\n"
@@ -103,7 +103,7 @@ func (x *Interactor) GetSupportedDistribution() (DistributionSupportReport, erro
 	return res, nil
 }
 
-func (x *Interactor) UpdateDistribution(d deb.Distribution, a deb.Architecture) error {
+func (x *Interactor) UpdateDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
 	supported := false
 	for _, aa := range x.builder.AvailableArchitectures(d) {
 		if aa == a {
@@ -116,5 +116,5 @@ func (x *Interactor) UpdateDistribution(d deb.Distribution, a deb.Architecture) 
 		return fmt.Errorf("Distribution %s-%s is not supported by builder, could not update it.", d, a)
 	}
 
-	return x.builder.UpdateDistribution(d, a)
+	return x.builder.UpdateDistribution(d, a, output)
 }

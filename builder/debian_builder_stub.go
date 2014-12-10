@@ -55,7 +55,7 @@ func (b *DebianBuilderStub) RemoveDistribution(d deb.Distribution, a deb.Archite
 	return nil
 }
 
-func (b *DebianBuilderStub) UpdateDistribution(d deb.Distribution, a deb.Architecture) error {
+func (b *DebianBuilderStub) UpdateDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
 	archs, ok := b.DistAndArch[d]
 	if ok == false {
 		return fmt.Errorf("Distribution %s is not supported", d)

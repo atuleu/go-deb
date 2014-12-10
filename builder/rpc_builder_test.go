@@ -86,10 +86,10 @@ func (s *RpcBuilderSuite) TestCreateAndRemove(c *C) {
 }
 
 func (s *RpcBuilderSuite) TestUpdateDistribution(c *C) {
-	err := s.c.UpdateDistribution("unstable", deb.Amd64)
+	err := s.c.UpdateDistribution("unstable", deb.Amd64, nil)
 	c.Check(err, IsNil)
 	//cannot use sid in that example, it may or may not have been
 	//added by other test
-	err = s.c.UpdateDistribution("buzz", deb.Amd64)
+	err = s.c.UpdateDistribution("buzz", deb.Amd64, nil)
 	c.Check(err, ErrorMatches, "Distribution buzz is not supported")
 }

@@ -112,8 +112,17 @@ func (c *ClientBuilder) RemoveDistribution(d deb.Distribution, a deb.Architectur
 	return fmt.Errorf("Client builder are not allowed to remove distribution/architecture")
 }
 
-func (c *ClientBuilder) UpdateDistribution(d deb.Distribution, a deb.Architecture) error {
-	return c.conn.Call("RpcBuilder.Update", RpcDistAndArchArgs{Dist: d, Arch: a}, &NoValue{})
+func (c *ClientBuilder) UpdateDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
+	id, _, errChan, err := c.initSynchronization(output)
+	if err != nil {
+		return err
+	}
+
+	if err = c.conn.Call("RpcBuilder.Update", UpdateArgs{ID: id, Dist: d, Arch: a}, &NoValue{}); err != nil {
+		return err
+	}
+	err = <-errChan
+	return err
 }
 
 func (c *ClientBuilder) AvailableDistributions() []deb.Distribution {
@@ -165,6 +174,7 @@ type RpcBuilder struct {
 	generator                          chan SyncOutputID
 	timeoutClearer, timeouter, remover chan SyncOutputID
 	syncOutputs                        map[SyncOutputID]syncOutput
+	logger                             log.Logger
 }
 
 func (b *RpcBuilder) manageSyncID() {
@@ -273,7 +283,7 @@ func (b *RpcBuilder) Build(args RpcBuildArguments, res *BuildResult) error {
 		args.Args.Dist,
 		args.Args.Archs)
 	actualRes, err := b.actualBuilder.BuildPackage(args.Args, s.w)
-	log.Printf("[%d]: Build finished\n", args.ID)
+	log.Printf("[%d]: Built %s, success:%v\n", args.ID, args.Args.SourcePackage.Identifier, err == nil)
 	if err != nil {
 		return err
 	}
@@ -304,20 +314,35 @@ func (b *RpcBuilder) Create(args CreateArgs, res *NoValue) error {
 		return fmt.Errorf("Client is not connected to synchronization output %d", args.ID)
 	}
 
-	log.Printf("[%d]: Creating distribution %s %s\n", args.ID, args.Dist, args.Arch)
+	log.Printf("[%d]: Creating distribution %s-%s\n", args.ID, args.Dist, args.Arch)
 	err := b.actualBuilder.InitDistribution(args.Dist, args.Arch, writer)
-	log.Printf("[%d]: Creation of distribution %s %s finished\n", args.ID, args.Dist, args.Arch)
+	log.Printf("[%d]: Created distribution %s-%s, success:%v\n", args.ID, args.Dist, args.Arch, err == nil)
 
 	return err
 }
 
-type RpcDistAndArchArgs struct {
+type UpdateArgs struct {
+	ID   SyncOutputID
 	Dist deb.Distribution
 	Arch deb.Architecture
 }
 
-func (b *RpcBuilder) Update(args RpcDistAndArchArgs, res *NoValue) error {
-	return b.actualBuilder.UpdateDistribution(args.Dist, args.Arch)
+func (b *RpcBuilder) Update(args UpdateArgs, res *NoValue) error {
+	b.timeoutClearer <- args.ID
+	s, ok := b.syncOutputs[args.ID]
+	if ok == false {
+		return fmt.Errorf("No output sunchronization %d available", args.ID)
+	}
+	defer func() { b.remover <- args.ID }()
+	writer := s.w
+	if writer == nil {
+		return fmt.Errorf("Client is not connected to synchronization output %d", args.ID)
+	}
+
+	log.Printf("[%d]: Updating distribution %s-%s", args.ID, args.Dist, args.Arch)
+	err := b.actualBuilder.UpdateDistribution(args.Dist, args.Arch, writer)
+	log.Printf("[%d]: Updated distribution %s-%s, success:%v", args.ID, args.Dist, args.Arch, err == nil)
+	return err
 }
 
 type DistributionList struct {

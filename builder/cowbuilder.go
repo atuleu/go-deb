@@ -225,15 +225,15 @@ func (b *Cowbuilder) RemoveDistribution(d deb.Distribution, a deb.Architecture) 
 	b.acquire()
 	defer b.release()
 
-	_, err := b.supportedDistributionPath(d, a)
+	imagePath, err := b.supportedDistributionPath(d, a)
 	if err != nil {
 		return fmt.Errorf("Distribution %s architecture %s is not supported", d, a)
 	}
 
-	return deb.NotYetImplemented()
+	return os.RemoveAll(imagePath)
 }
 
-func (b *Cowbuilder) UpdateDistribution(d deb.Distribution, a deb.Architecture) error {
+func (b *Cowbuilder) UpdateDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
 	b.acquire()
 	defer b.release()
 
@@ -242,7 +242,15 @@ func (b *Cowbuilder) UpdateDistribution(d deb.Distribution, a deb.Architecture) 
 		return fmt.Errorf("Distribution %s architecture %s is not supported", d, a)
 	}
 
-	return deb.NotYetImplemented()
+	cmd, err := b.cowbuilderCommand(d, a, "--update")
+	if err != nil {
+		return err
+	}
+	cmd.Stdin = nil
+	cmd.Stdout = output
+	cmd.Stderr = output
+
+	return cmd.Run()
 }
 
 func (b *Cowbuilder) AvailableDistributions() []deb.Distribution {

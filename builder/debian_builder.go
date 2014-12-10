@@ -38,7 +38,7 @@ type DebianBuilder interface {
 	BuildPackage(b BuildArguments, output io.Writer) (*BuildResult, error)
 	InitDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error
 	RemoveDistribution(d deb.Distribution, a deb.Architecture) error
-	UpdateDistribution(d deb.Distribution, a deb.Architecture) error
+	UpdateDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error
 	AvailableDistributions() []deb.Distribution
 	AvailableArchitectures(d deb.Distribution) []deb.Architecture
 }
