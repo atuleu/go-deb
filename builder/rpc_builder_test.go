@@ -34,6 +34,7 @@ func (s *RpcBuilderSuite) SetUpSuite(c *C) {
 
 	s.s = NewRpcBuilderServer(s.b, s.sock)
 	//we remove output from tests
+	//TODO: we coudl unit test the logging now
 	voidLogger := log.New(&s.output, s.s.logger.Prefix(), s.s.logger.Flags())
 	s.s.b.logger = voidLogger
 	s.s.logger = voidLogger

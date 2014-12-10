@@ -131,6 +131,25 @@ func (x *ListDistributionCommand) Execute(args []string) error {
 
 }
 
+type UpdateDistCommand struct {
+	Dist string `long:"dist" short:"D" description:"Distribution to initilaize" required:"true"`
+	Arch string `long:"arch" short:"A" description:"Architecture to initialize" required:"true"`
+}
+
+func (x *UpdateDistCommand) Execute(args []string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("update-dist takes no arguments")
+	}
+	i, err := NewInteractor(options)
+	if err != nil {
+		return err
+	}
+
+	return i.builder.UpdateDistribution(deb.Distribution(x.Dist),
+		deb.Architecture(x.Arch),
+		os.Stdout)
+}
+
 func init() {
 	parser.AddCommand("serve-builder",
 		"Starts a package builder as a RPC service.",
@@ -151,4 +170,9 @@ func init() {
 		"List current user and builder support for distribution/ architecture",
 		"List current user and builder support for distribution/ architecture",
 		&ListDistributionCommand{})
+
+	parser.AddCommand("update-dist",
+		"Update a supported distrbution",
+		"Updates the chroot of any distribution of the builder.",
+		&UpdateDistCommand{})
 }

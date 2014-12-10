@@ -250,6 +250,10 @@ func (b *Cowbuilder) UpdateDistribution(d deb.Distribution, a deb.Architecture, 
 	cmd.Stdout = output
 	cmd.Stderr = output
 
+	if output != nil {
+		fmt.Fprintf(output, "--- Executing: %v\n--- Env: %v\n", cmd.Args, cmd.Env)
+	}
+
 	return cmd.Run()
 }
 
@@ -257,7 +261,6 @@ func (b *Cowbuilder) AvailableDistributions() []deb.Distribution {
 	b.acquire()
 	defer b.release()
 
-	// checks for
 	res := []deb.Distribution{}
 	for d, _ := range b.getAllImages() {
 		res = append(res, d)
