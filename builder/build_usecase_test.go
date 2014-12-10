@@ -15,6 +15,7 @@ type BuildUseCaseSuite struct {
 	localApt        *LocalAptRepositoryStub
 	history         *HistoryStub
 	dsc             deb.SourceControlFile
+	distConfig      *UserDistSupportConfigStub
 }
 
 var _ = Suite(&BuildUseCaseSuite{})
@@ -69,10 +70,17 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 	s.localApt = &LocalAptRepositoryStub{}
 	s.localApt.AddDistribution("unstable", deb.Amd64)
 	s.history = &HistoryStub{}
+	s.distConfig = &UserDistSupportConfigStub{
+		supported: map[deb.Distribution][]deb.Architecture{
+			"unstable": []deb.Architecture{deb.Amd64},
+		},
+	}
+
 	s.x.history = s.history
 	s.x.builder = s.builder
 	s.x.archiver = s.packageArchiver
 	s.x.localRepository = s.localApt
+	s.x.userDistConfig = s.distConfig
 }
 
 func (s *BuildUseCaseSuite) TestWorkingWorkflow(c *C) {
@@ -143,6 +151,21 @@ func (s *BuildUseCaseSuite) TestBuildUnsupportedDistribution(c *C) {
 
 	c.Check(b, IsNil)
 	c.Check(err, ErrorMatches, "Target distribution `.*' of source package `.*' is not supported")
+	c.Check(s.builder.BuildCalled, Equals, false)
+	c.Check(s.packageArchiver.ArchiveSourceCalled, Equals, true)
+	c.Check(s.packageArchiver.ArchiveResultCalled, Equals, false)
+
+	c.Check(s.x.GetLastSuccesfullUserBuild(), IsNil)
+}
+
+func (s *BuildUseCaseSuite) TestBuildConsistencyError(c *C) {
+	err := s.distConfig.Add("unstable", deb.I386)
+	c.Assert(err, IsNil)
+
+	b, err := s.x.BuildPackage(s.dsc, nil)
+
+	c.Check(b, IsNil)
+	c.Check(err, ErrorMatches, "System consistency error: builder does not support unstable-i386")
 	c.Check(s.builder.BuildCalled, Equals, false)
 	c.Check(s.packageArchiver.ArchiveSourceCalled, Equals, true)
 	c.Check(s.packageArchiver.ArchiveResultCalled, Equals, false)

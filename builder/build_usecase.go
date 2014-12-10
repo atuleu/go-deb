@@ -25,9 +25,23 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 
 	targetDist := a.Changes.Dist
 
-	archs := x.builder.AvailableArchitectures(targetDist)
-	if len(archs) == 0 {
+	supported := x.userDistConfig.Supported()
+	archs, ok := supported[targetDist]
+	if ok == false || len(archs) == 0 {
 		return nil, fmt.Errorf("Target distribution `%s' of source package `%s' is not supported", targetDist, s.Identifier)
+	}
+
+	for _, targetArch := range archs {
+		found := false
+		for _, arch := range x.builder.AvailableArchitectures(targetDist) {
+			if arch == targetArch {
+				found = true
+				break
+			}
+		}
+		if found == false {
+			return nil, fmt.Errorf("System consistency error: builder does not support %s-%s", targetDist, targetArch)
+		}
 	}
 
 	buildRes, err := x.builder.BuildPackage(BuildArguments{
