@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 
@@ -14,6 +16,7 @@ type RpcBuilderSuite struct {
 	s            *RpcBuilderServer
 	c            *ClientBuilder
 	tmpDir, sock string
+	output       bytes.Buffer
 }
 
 var _ = Suite(&RpcBuilderSuite{})
@@ -28,7 +31,13 @@ func (s *RpcBuilderSuite) SetUpSuite(c *C) {
 			deb.Distribution("unstable"): []deb.Architecture{deb.Amd64},
 		},
 	}
+
 	s.s = NewRpcBuilderServer(s.b, s.sock)
+	//we remove output from tests
+	voidLogger := log.New(&s.output, s.s.logger.Prefix(), s.s.logger.Flags())
+	s.s.b.logger = voidLogger
+	s.s.logger = voidLogger
+
 	go s.s.Serve()
 	err = s.s.WaitEstablished()
 	c.Assert(err, IsNil)

@@ -174,7 +174,7 @@ type RpcBuilder struct {
 	generator                          chan SyncOutputID
 	timeoutClearer, timeouter, remover chan SyncOutputID
 	syncOutputs                        map[SyncOutputID]syncOutput
-	logger                             log.Logger
+	logger                             *log.Logger
 }
 
 func (b *RpcBuilder) manageSyncID() {
@@ -278,12 +278,12 @@ func (b *RpcBuilder) Build(args RpcBuildArguments, res *BuildResult) error {
 		return fmt.Errorf("Client is not connected to synchronization output %d", args.ID)
 	}
 
-	log.Printf("[%d]: Building package %s for distribution %s and architectures %s\n", args.ID,
+	b.logger.Printf("[%d]: Building package %s for distribution %s and architectures %s\n", args.ID,
 		args.Args.SourcePackage.Identifier,
 		args.Args.Dist,
 		args.Args.Archs)
 	actualRes, err := b.actualBuilder.BuildPackage(args.Args, s.w)
-	log.Printf("[%d]: Built %s, success:%v\n", args.ID, args.Args.SourcePackage.Identifier, err == nil)
+	b.logger.Printf("[%d]: Built %s, success:%v\n", args.ID, args.Args.SourcePackage.Identifier, err == nil)
 	if err != nil {
 		return err
 	}
@@ -314,9 +314,9 @@ func (b *RpcBuilder) Create(args CreateArgs, res *NoValue) error {
 		return fmt.Errorf("Client is not connected to synchronization output %d", args.ID)
 	}
 
-	log.Printf("[%d]: Creating distribution %s-%s\n", args.ID, args.Dist, args.Arch)
+	b.logger.Printf("[%d]: Creating distribution %s-%s\n", args.ID, args.Dist, args.Arch)
 	err := b.actualBuilder.InitDistribution(args.Dist, args.Arch, writer)
-	log.Printf("[%d]: Created distribution %s-%s, success:%v\n", args.ID, args.Dist, args.Arch, err == nil)
+	b.logger.Printf("[%d]: Created distribution %s-%s, success:%v\n", args.ID, args.Dist, args.Arch, err == nil)
 
 	return err
 }
@@ -339,9 +339,9 @@ func (b *RpcBuilder) Update(args UpdateArgs, res *NoValue) error {
 		return fmt.Errorf("Client is not connected to synchronization output %d", args.ID)
 	}
 
-	log.Printf("[%d]: Updating distribution %s-%s", args.ID, args.Dist, args.Arch)
+	b.logger.Printf("[%d]: Updating distribution %s-%s", args.ID, args.Dist, args.Arch)
 	err := b.actualBuilder.UpdateDistribution(args.Dist, args.Arch, writer)
-	log.Printf("[%d]: Updated distribution %s-%s, success:%v", args.ID, args.Dist, args.Arch, err == nil)
+	b.logger.Printf("[%d]: Updated distribution %s-%s, success:%v", args.ID, args.Dist, args.Arch, err == nil)
 	return err
 }
 
@@ -367,15 +367,19 @@ type RpcBuilderServer struct {
 	b       *RpcBuilder
 	address string
 	errChan chan error
+	logger  *log.Logger
 }
 
 func NewRpcBuilderServer(builder DebianBuilder, address string) *RpcBuilderServer {
+	logger := log.New(os.Stderr, "", log.LstdFlags)
 	return &RpcBuilderServer{
 		b: &RpcBuilder{
 			actualBuilder: builder,
+			logger:        logger,
 		},
 		address: address,
 		errChan: make(chan error),
+		logger:  logger,
 	}
 }
 
@@ -431,14 +435,14 @@ func (s *RpcBuilderServer) Serve() {
 
 	go s.b.manageSyncID()
 	s.errChan <- nil
-	log.Printf("Started RPC builder on unix:/%s\n", s.address)
+	s.logger.Printf("Started RPC builder on unix:/%s\n", s.address)
 	http.Serve(l, nil)
 }
 
 func (s *RpcBuilderServer) Stop(l net.Listener) {
 	l.Close()
-	log.Printf("Stopping RPC\n")
-	log.Printf("Removing unix:/%s\n", s.address)
+	s.logger.Printf("Stopping RPC\n")
+	s.logger.Printf("Removing unix:/%s\n", s.address)
 	os.Remove(s.address)
 }
 
