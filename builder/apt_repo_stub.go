@@ -6,33 +6,33 @@ import (
 	deb ".."
 )
 
-type LocalAptRepositoryStub struct {
+type AptRepositoryStub struct {
 	ArchiveCalled bool
 	Err           error
 }
 
-func (l *LocalAptRepositoryStub) ArchiveChanges(c *deb.ChangesFile) error {
+func (l *AptRepositoryStub) ArchiveChanges(c *deb.ChangesFile, dir string) error {
 	if l.Err != nil {
 		return l.Err
 	}
 	l.ArchiveCalled = true
 	return nil
 }
-func (l *LocalAptRepositoryStub) AddDistribution(deb.Distribution, deb.Architecture) error {
+func (l *AptRepositoryStub) AddDistribution(deb.Distribution, deb.Architecture) error {
 	return nil
 }
 
-func (l *LocalAptRepositoryStub) RemoveDistribution(deb.Distribution, deb.Architecture) error {
+func (l *AptRepositoryStub) RemoveDistribution(deb.Distribution, deb.Architecture) error {
 	return nil
 }
-func (l *LocalAptRepositoryStub) ListPackage(deb.Distribution, *regexp.Regexp) []deb.BinaryPackageRef {
+func (l *AptRepositoryStub) ListPackage(deb.Distribution, *regexp.Regexp) []deb.BinaryPackageRef {
 	return nil
 
 }
-func (l *LocalAptRepositoryStub) RemovePackage(deb.Distribution, deb.BinaryPackageRef) error {
+func (l *AptRepositoryStub) RemovePackage(deb.Distribution, deb.BinaryPackageRef) error {
 	return nil
 }
 
-func (l *LocalAptRepositoryStub) Access() AptRepositoryAccess {
+func (l *AptRepositoryStub) Access() AptRepositoryAccess {
 	return AptRepositoryAccess{}
 }

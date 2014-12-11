@@ -16,7 +16,7 @@ type AptRepositoryAccess struct {
 }
 
 type AptRepository interface {
-	ArchiveChanges(c *deb.ChangesFile) error
+	ArchiveChanges(c *deb.ChangesFile, dir string) error
 	AddDistribution(deb.Distribution, deb.Architecture) error
 	RemoveDistribution(deb.Distribution, deb.Architecture) error
 	ListPackage(deb.Distribution, *regexp.Regexp) []deb.BinaryPackageRef

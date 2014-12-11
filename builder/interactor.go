@@ -1,6 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"path"
+
+	"launchpad.net/go-xdg"
+)
 
 type Interactor struct {
 	archiver        PackageArchiver
@@ -24,6 +29,26 @@ func NewInteractor(o *Options) (*Interactor, error) {
 	}
 
 	res.userDistConfig, err = NewXdgUserDistConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	res.localRepository, err = NewReprepro(path.Join(xdg.Data.Home(), "go-deb.builder/local_reprepro"))
+	if err != nil {
+		return nil, err
+	}
+
+	res.history, err = NewXdgHistory()
+	if err != nil {
+		return nil, err
+	}
+
+	auth, err := NewAuthentifier()
+	if err != nil {
+		return nil, err
+	}
+
+	res.archiver, err = NewXdgArchiver(auth)
 	if err != nil {
 		return nil, err
 	}

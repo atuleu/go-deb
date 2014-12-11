@@ -68,10 +68,12 @@ func (a *XdgArchiver) ensureSourceChanges(p deb.SourceControlFile) (*deb.Changes
 
 	//test if a source changes exists
 	sChangesPath := path.Join(p.BasePath, p.ChangesFilename())
+
 	exists, err := a.fileExists(sChangesPath)
 	if err != nil {
 		return nil, err
 	}
+
 	if exists {
 		f, err := os.Open(sChangesPath)
 		if err != nil {
@@ -85,17 +87,13 @@ func (a *XdgArchiver) ensureSourceChanges(p deb.SourceControlFile) (*deb.Changes
 		return deb.ParseChangeFile(unsigned)
 	}
 
-	if err != nil && os.IsNotExist(err) == false {
-		return nil, fmt.Errorf("Could not test existance of %s: %s", sChangesPath, err)
-	}
-
 	extractedDir := path.Join(tmpDir, p.Identifier.String())
 	cmd := exec.Command("dpkg-source", "-x",
 		path.Join(p.BasePath, p.Filename()),
 		extractedDir)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("Could not create extract source package:\n%s", output)
+		return nil, fmt.Errorf("Could not extract source package:\n%s", output)
 	}
 
 	cmd = exec.Command("dpkg-genchanges", "-S")
@@ -175,7 +173,7 @@ func (a *XdgArchiver) copyFile(inPath, outPath string) error {
 	defer in.Close()
 	out, err := os.Create(outPath)
 	if err != nil {
-		return fmt.Errorf("Could not create %s: %s", inPath, err)
+		return err
 	}
 	_, err = io.Copy(out, in)
 	if err != nil {
@@ -241,6 +239,12 @@ func (a *XdgArchiver) copySourceFileToStage(p deb.SourceControlFile) ([]string, 
 	// first stage the file
 	dest = path.Join(dest, "stage")
 
+	//makes sure directory exists !
+	err = os.MkdirAll(dest, 0755)
+	if err != nil {
+		return copied, dest, err
+	}
+
 	for _, f := range p.Md5Files {
 		err := f.CheckFile(p.BasePath)
 		if err != nil {
@@ -274,7 +278,7 @@ func (a *XdgArchiver) copySourceFileToStage(p deb.SourceControlFile) ([]string, 
 
 	toCopy = append(toCopy, p.Filename())
 
-	exists, err := a.fileExists(p.ChangesFilename())
+	exists, err := a.fileExists(path.Join(p.BasePath, p.ChangesFilename()))
 	if err != nil {
 		return copied, dest, err
 	}

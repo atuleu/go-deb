@@ -3,6 +3,9 @@ package main
 import (
 	"io/ioutil"
 	"os"
+	"path"
+
+	"launchpad.net/go-xdg"
 
 	deb ".."
 	. "gopkg.in/check.v1"
@@ -43,31 +46,33 @@ func (s *TempHomer) OverrideEnv(key, value string) {
 	s.envOverrides[key] = value
 }
 
-type LocalRepreproSuite struct {
-	h TempHomer
-	r *LocalReprepro
+type RepreproSuite struct {
+	h        TempHomer
+	r        *Reprepro
+	repoPath string
 }
 
-var _ = Suite(&LocalRepreproSuite{})
+var _ = Suite(&RepreproSuite{})
 
-func (s *LocalRepreproSuite) SetUpSuite(c *C) {
+func (s *RepreproSuite) SetUpSuite(c *C) {
 	s.h.OverrideEnv("XDG_DATA_HOME", "")
 	err := s.h.SetUp()
 	c.Assert(err, IsNil, Commentf("Initialization error %s", err))
 
-	s.r, err = NewLocalReprepro()
+	s.repoPath = path.Join(xdg.Data.Home(), "go-deb.builder/reprepro_test")
+	s.r, err = NewReprepro(s.repoPath)
 	c.Assert(err, IsNil, Commentf("Initialization error %s", err))
 
 	err = s.r.AddDistribution("unstable", deb.Amd64)
 	c.Assert(err, IsNil, Commentf("Initialization error %s", err))
 }
 
-func (s *LocalRepreproSuite) TearDownSuite(c *C) {
+func (s *RepreproSuite) TearDownSuite(c *C) {
 	err := s.h.TearDown()
 	c.Assert(err, IsNil, Commentf("Cleanup error %s", err))
 }
 
-func (s *LocalRepreproSuite) TestLockFailure(c *C) {
+func (s *RepreproSuite) TestLockFailure(c *C) {
 	//acquire the lock
 	err := s.r.tryLock()
 	c.Assert(err, IsNil, Commentf("Unexpected error: %s", err))
@@ -82,6 +87,16 @@ func (s *LocalRepreproSuite) TestLockFailure(c *C) {
 		},
 	}
 
-	c.Check(s.r.ArchiveBuildResult(b), ErrorMatches, errMatch)
+	c.Check(s.r.ArchiveChanges(b.Changes, os.TempDir()), ErrorMatches, errMatch)
 	c.Check(s.r.RemovePackage("unstable", deb.BinaryPackageRef{}), ErrorMatches, errMatch)
+	defer func() {
+		c.Assert(recover(), IsNil)
+	}()
+	s.r.unlockOrPanic()
+}
+
+func (s *RepreproSuite) TestReload(c *C) {
+	newRepo, err := NewReprepro(s.repoPath)
+	c.Check(err, IsNil)
+	c.Check(newRepo, DeepEquals, s.r)
 }

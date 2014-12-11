@@ -12,7 +12,7 @@ type BuildUseCaseSuite struct {
 	x               Interactor
 	builder         *DebianBuilderStub
 	packageArchiver *PackageArchiverStub
-	localApt        *LocalAptRepositoryStub
+	localApt        *AptRepositoryStub
 	history         *HistoryStub
 	dsc             deb.SourceControlFile
 	distConfig      *UserDistSupportConfigStub
@@ -67,7 +67,7 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 
 	s.builder.InitDistribution("unstable", deb.Amd64, nil)
 
-	s.localApt = &LocalAptRepositoryStub{}
+	s.localApt = &AptRepositoryStub{}
 	s.localApt.AddDistribution("unstable", deb.Amd64)
 	s.history = &HistoryStub{}
 	s.distConfig = &UserDistSupportConfigStub{

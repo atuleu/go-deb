@@ -41,6 +41,7 @@ type DistManagementUseCaseSuite struct {
 	x          *Interactor
 	builder    *DebianBuilderStub
 	distConfig *UserDistSupportConfigStub
+	repo       *AptRepositoryStub
 }
 
 var _ = Suite(&DistManagementUseCaseSuite{})
@@ -52,10 +53,12 @@ func (s *DistManagementUseCaseSuite) SetUpSuite(c *C) {
 	s.distConfig = &UserDistSupportConfigStub{
 		supported: make(map[deb.Distribution][]deb.Architecture),
 	}
+	s.repo = &AptRepositoryStub{}
 
 	s.x = &Interactor{
-		builder:        s.builder,
-		userDistConfig: s.distConfig,
+		builder:         s.builder,
+		userDistConfig:  s.distConfig,
+		localRepository: s.repo,
 	}
 
 }
@@ -86,8 +89,8 @@ func (s *DistManagementUseCaseSuite) TestAddAndRemoveDistribution(c *C) {
 	c.Check(archs[deb.Amd64], Equals, true)
 	c.Check(archs[deb.I386], Equals, true)
 
-	err = s.x.RemoveDistributionSupport("buzz",deb.Amd64, false)
-	c.Check(err,IsNil)
+	err = s.x.RemoveDistributionSupport("buzz", deb.Amd64, false)
+	c.Check(err, IsNil)
 	err = s.x.RemoveDistributionSupport("unstable", deb.Amd64, false)
 	c.Check(err, IsNil)
 
@@ -102,25 +105,23 @@ func (s *DistManagementUseCaseSuite) TestAddAndRemoveDistribution(c *C) {
 	v, ok := archs[deb.Amd64]
 	c.Check(v, Equals, false)
 	c.Check(ok, Equals, true)
-	
-	err = s.distConfig.Add("buzz",deb.Amd64)
+
+	err = s.distConfig.Add("buzz", deb.Amd64)
 	c.Assert(err, IsNil)
 
-	data,err = s.x.GetSupportedDistribution()
+	data, err = s.x.GetSupportedDistribution()
 	c.Check(data, IsNil)
 	c.Check(err, ErrorMatches, "System consistency error: user list distributions buzz:.amd64., but builder does not support buzz")
-	
-	err = s.distConfig.Remove("buzz",deb.Amd64)
+
+	err = s.distConfig.Remove("buzz", deb.Amd64)
 	c.Assert(err, IsNil)
 
-	err = s.distConfig.Add("unstable",deb.I386)
+	err = s.distConfig.Add("unstable", deb.I386)
 	c.Assert(err, IsNil)
-	err = s.distConfig.Add("unstable",deb.Amd64)
+	err = s.distConfig.Add("unstable", deb.Amd64)
 	c.Assert(err, IsNil)
 
-
-
-	data,err = s.x.GetSupportedDistribution()
+	data, err = s.x.GetSupportedDistribution()
 	c.Check(data, IsNil)
 	c.Check(err, ErrorMatches, "System consistency error: user list distributions unstable:.i386 amd64., but builder does not support i386 for unstable")
 

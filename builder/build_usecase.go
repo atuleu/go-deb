@@ -62,7 +62,7 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 	buildRes, archErr := x.archiver.ArchiveBuildResult(*buildRes)
 
 	if archErr == nil {
-		archErr = x.localRepository.ArchiveChanges(buildRes.Changes)
+		archErr = x.localRepository.ArchiveChanges(buildRes.Changes, buildRes.BasePath)
 	}
 
 	if archErr != nil {

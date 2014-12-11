@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path"
 
@@ -26,6 +27,7 @@ func NewXdgHistory() (*XdgHistory, error) {
 	res := &XdgHistory{}
 	var err error
 	res.filepath, err = xdg.Data.Ensure(xdgHistoryPath)
+
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +64,13 @@ func (h *XdgHistory) load() error {
 	defer f.Close()
 
 	dec := json.NewDecoder(f)
-	return dec.Decode(h.data)
+	err = dec.Decode(h.data)
+	if err != nil && err != io.EOF {
+		//we mask io.EOF error, because we could have an empty file
+		//as an history
+		return err
+	}
+	return nil
 }
 
 func (h *XdgHistory) save() error {

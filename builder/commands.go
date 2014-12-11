@@ -23,6 +23,9 @@ func (x *ServeBuilderCommand) Execute(args []string) error {
 		return fmt.Errorf("Only --type=cowbuilder is supported")
 	}
 
+	// WRANING : do not create an intercator here. We could mess up
+	// with user settings. we should just wrap a builder with a RpcBuilder.
+
 	b, err := NewCowbuilder(x.BasePath)
 	if err != nil {
 		return fmt.Errorf("Cowbuilder initialization error: %s", err)
@@ -150,6 +153,42 @@ func (x *UpdateDistCommand) Execute(args []string) error {
 		os.Stdout)
 }
 
+type BuildCommand struct {
+}
+
+func (x *BuildCommand) Execute(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("build takes exactly one argument, the .dsc to build")
+	}
+
+	if err := deb.IsDscFileName(args[0]); err != nil {
+		return fmt.Errorf("Invalid argument %s: %s", args[0], err)
+	}
+	f, err := os.Open(args[0])
+	if err != nil {
+		return err
+	}
+
+	dsc, err := deb.ParseDsc(f)
+	if err != nil {
+		return err
+	}
+
+	i, err := NewInteractor(options)
+	if err != nil {
+		return err
+	}
+
+	res, err := i.BuildPackage(*dsc, os.Stderr)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Successfully build %s, final changes is: %s\n", res.Changes.Ref.Identifier, path.Join(res.BasePath, res.ChangesPath))
+
+	return nil
+}
+
 func init() {
 	parser.AddCommand("serve-builder",
 		"Starts a package builder as a RPC service.",
@@ -175,4 +214,9 @@ func init() {
 		"Update a supported distrbution",
 		"Updates the chroot of any distribution of the builder.",
 		&UpdateDistCommand{})
+
+	parser.AddCommand("build",
+		"Builds a .dsc file",
+		"build will start a build for all architecture the user supports given a .dsc file. Distribution will be infered from the debian/changelog",
+		&BuildCommand{})
 }

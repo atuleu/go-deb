@@ -53,6 +53,11 @@ func (x *Interactor) AddDistributionSupport(d deb.Distribution, a deb.Architectu
 		return res, fmt.Errorf("Could not modify user settings : %s", err)
 	}
 
+	err = x.localRepository.AddDistribution(d, a)
+	if err != nil {
+		return nil, err
+	}
+
 	var sep string
 	if len(res.Message) > 0 {
 		sep = "\n"
@@ -64,6 +69,11 @@ func (x *Interactor) AddDistributionSupport(d deb.Distribution, a deb.Architectu
 
 func (x *Interactor) RemoveDistributionSupport(d deb.Distribution, a deb.Architecture, removeBuilder bool) error {
 	err := x.userDistConfig.Remove(d, a)
+	if err != nil {
+		return err
+	}
+
+	err = x.localRepository.RemoveDistribution(d, a)
 	if err != nil {
 		return err
 	}
