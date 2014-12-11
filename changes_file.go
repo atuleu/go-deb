@@ -37,7 +37,7 @@ type ChangesFile struct {
 }
 
 func (c *ChangesFileRef) Filename() string {
-	return fmt.Sprintf("%s_%s_%s.changes", c.Identifier.Source, c.Identifier.Ver, c.Suffix)
+	return fmt.Sprintf("%s_%s.changes", c.Identifier, c.Suffix)
 }
 
 var debFileRx = regexp.MustCompile(`^(.*)_(.*)_(.*).(deb|udeb)$`)
