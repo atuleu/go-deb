@@ -155,7 +155,7 @@ func (s *ChangesFileSuite) TestSingleLineFieldParse(c *C) {
 	for _, field := range data {
 		ch, err := ParseChangeFile(strings.NewReader(fmt.Sprintf("%s: \n multi\n", field)))
 		c.Check(ch, IsNil)
-		c.Check(err, ErrorMatches, fmt.Sprintf("Invalid .changes field %s: .*: expected a single line field", field))
+		c.Check(err, ErrorMatches, fmt.Sprintf(".changes parse error: invalid field %s:.*: expected a single line field", field))
 	}
 
 }
@@ -167,7 +167,7 @@ func (s *ChangesFileSuite) TestMultiLineFieldParse(c *C) {
 		for _, format := range formats {
 			content := fmt.Sprintf(format, field)
 			ch, err := ParseChangeFile(strings.NewReader(content))
-			errMatch := fmt.Sprintf("Invalid .changes field %s: .*: expected a multi-line field, first line empty", field)
+			errMatch := fmt.Sprintf(".changes parse error: invalid field %s:.*: expected a multi-line field, first line empty", field)
 			c.Check(ch, IsNil)
 			c.Check(err, ErrorMatches, errMatch)
 		}
@@ -176,36 +176,36 @@ func (s *ChangesFileSuite) TestMultiLineFieldParse(c *C) {
 
 func (s *ChangesFileSuite) TestParseChangesErrors(c *C) {
 	data := map[string]string{
-		".changes are expected to have a single paragraph": `Format: 1.8
+		".changes parse error: expect a single paragraph": `Format: 1.8
 
 Version: 1.2.3-1
 `,
-		"Unexpected .changes field Is-not-a-debian-field": `Is-not-a-debian-field: my-value
+		".changes parse error: unexpected field Is-not-a-debian-field:.*": `Is-not-a-debian-field: my-value
 `,
-		`Invalid .changes field Format: \[.*\]: it should have no epoch or debian revision`: `Format: 3:1.3-1
+		`.changes parse error: invalid field Format:\[.*\]: it should have no epoch or debian revision`: `Format: 3:1.3-1
 `,
-		"Invalid .changes field Format: .*: Invalid upstream version `1.3:3', it should not contain a colon since epoch is 0.*": `Format: 1.3:3-1
+		".changes parse error: invalid field Format:.*: Invalid upstream version `1.3:3', it should not contain a colon since epoch is 0.*": `Format: 1.3:3-1
 `,
-		"Invalid .changes field Version: .*: Invalid upstream version `1.3:3', it should not contain a colon since epoch is 0.*": `Version: 1.3:3-1
+		".changes parse error: invalid field Version:.*: Invalid upstream version `1.3:3', it should not contain a colon since epoch is 0.*": `Version: 1.3:3-1
 `,
-		"Invalid .changes field Files: .*: invalid line `.*' .4 elements., expected `checksum size .section priority. name'": `Files:
+		".changes parse error: invalid field Files:.*: invalid line `.*' .4 elements., expected `checksum size .section priority. name'": `Files:
  0123456789abcdef 123 extra-section file.deb
 `,
-		"Invalid .changes field Files: .*: encoding/hex.*": `Files:
+		".changes parse error: invalid field Files:.*: encoding/hex.*": `Files:
  01234567x9abcdef 123 file.deb
 `,
-		"Invalid .changes field Files: .*: expected integer": `Files:
+		".changes parse error: invalid field Files:.*: expected integer": `Files:
  012345679abcdef0 e123 file.deb
 `,
-		"Invalid .changes field Architecture: .*: unknown architecture notanarch": `Architecture: source notanarch
+		".changes parse error: invalid field Architecture:.*: unknown architecture notanarch": `Architecture: source notanarch
 `,
-		"Invalid .changes field Distribution: .*: does not contains a single distribution": `Distribution: source notanarch
+		".changes parse error: invalid field Distribution:.*: does not contains a single distribution": `Distribution: source notanarch
 `,
-		"Invalid .changes field Maintainer: .*: mail: .*": `Maintainer: source
+		".changes parse error: invalid field Maintainer:.*: mail: .*": `Maintainer: source
 `,
-		"Invalid .changes field Source: .*: multiple source name": `Source: foo bar
+		".changes parse error: invalid field Source:.*: multiple source name": `Source: foo bar
 `,
-		"Invalid .changes field Date: .*: parsing time .*": `Date: foo +0000
+		".changes parse error: invalid field Date:.*: parsing time .*": `Date: foo +0000
 `,
 		".changes parse error: .*": ` Urgency:`,
 	}
@@ -251,7 +251,7 @@ func (s *ChangesFileSuite) TestRequiredFieldParse(c *C) {
 		}
 		ch, err := ParseChangeFile(&content)
 		c.Check(ch, IsNil)
-		c.Check(err, ErrorMatches, ".changes miss mandatory field "+field)
+		c.Check(err, ErrorMatches, ".changes parse error: missing required field ."+field+".")
 	}
 
 }
@@ -262,6 +262,6 @@ func (s *ChangesFileSuite) TestDateOffsetParsing(c *C) {
 	for _, off := range invalid {
 		ch, err := ParseChangeFile(strings.NewReader("Date: foo " + off))
 		c.Check(ch, IsNil)
-		c.Check(err, ErrorMatches, "Invalid .changes field Date: .*: invalid UTC offset `.*'")
+		c.Check(err, ErrorMatches, ".changes parse error: invalid field Date:.*: invalid UTC offset `.*'")
 	}
 }
