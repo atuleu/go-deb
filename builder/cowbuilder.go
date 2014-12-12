@@ -24,7 +24,7 @@ type Cowbuilder struct {
 
 	lock lockfile.Lockfile
 
-	supported []deb.Architecture
+	supported ArchitectureList
 
 	keepEnv     []string
 	debianDists []string
@@ -109,9 +109,10 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 	defer b.release()
 
 	//checks we supports everything
+	supported := b.getAllImages()
 	for _, targetArch := range a.Archs {
 		found := false
-		for _, aArch := range b.AvailableArchitectures(a.Dist) {
+		for _, aArch := range supported[a.Dist] {
 			if targetArch == aArch {
 				found = true
 				break
@@ -128,7 +129,7 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("Expected file %s, does not exists", dscFile)
 		}
-		return nil, fmt.Errorf("Could not check existence of %s", dscFile)
+		return nil, fmt.Errorf("Could not check existence of %s: %s", dscFile, err)
 	}
 
 	// ensure that destination directory exists
@@ -144,17 +145,38 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 		writer = io.MultiWriter(&buf, output)
 	}
 
+	var lastBuildArch deb.Architecture
 	for i, arch := range a.Archs {
-		debuildopts := []string{"-us", "-uc"}
+		debbuildopts := []string{}
 		//only the last will build architecture-independent package
+		var cmd *exec.Cmd
+		var err error
 		if i == len(a.Archs)-1 {
-			debuildopts = append(debuildopts, "-b")
+			debbuildopts = append(debbuildopts, "-b")
+		} else {
+			//if it produce only arch indep package we skip the build
+			skip := true
+			for _, targetArch := range a.SourcePackage.Archs {
+				if targetArch == deb.Any {
+					skip = false
+					break
+				}
+				if targetArch == arch {
+					skip = false
+					break
+				}
+			}
+			if skip == true {
+				fmt.Fprintf(writer, "Skiping build for %s, as it will produce no package\n", arch)
+				continue
+			}
+			debbuildopts = append(debbuildopts, "-B")
 		}
-
-		cmd, err := b.cowbuilderCommand(a.Dist, arch, "--build", "--binary-arch",
-			"--debbuildopts", `"`+strings.Join(debuildopts, " ")+`"`,
+		cmd, err = b.cowbuilderCommand(a.Dist, arch, "--build",
+			"--debbuildopts", `"`+strings.Join(debbuildopts, " ")+`"`,
 			"--buildresult", a.Dest,
 			dscFile)
+
 		if err != nil {
 			return nil, err
 		}
@@ -176,6 +198,7 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 			return nil, fmt.Errorf("Could not check existence of %s: %s", changesFileName, err)
 		}
 		changesFiles = append(changesFiles, changesFileName)
+		lastBuildArch = arch
 	}
 
 	res := &BuildResult{
@@ -186,7 +209,7 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 	}
 
 	res.ChangesPath = path.Base(changesFiles[0])
-
+	var suffix string = string(lastBuildArch)
 	if len(changesFiles) > 1 {
 		// in that case we make a multi-arch upload file
 		cmd := exec.Command("mergechanges", changesFiles...)
@@ -208,6 +231,7 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 		if err != nil {
 			return nil, err
 		}
+		suffix = "multi"
 	}
 	res.BuildLog = Log(buf.String())
 
@@ -220,6 +244,7 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 	if err != nil {
 		return nil, err
 	}
+	res.Changes.Ref.Suffix = suffix
 
 	return res, nil
 }
@@ -418,14 +443,14 @@ func (b *Cowbuilder) imagePath(d deb.Distribution, a deb.Architecture) string {
 	return path.Join(b.imagepath, fmt.Sprintf("%s-%s", d, a))
 }
 
-func (b *Cowbuilder) getAllImages() map[deb.Distribution][]deb.Architecture {
+func (b *Cowbuilder) getAllImages() map[deb.Distribution]ArchitectureList {
 
 	allFiles, err := ioutil.ReadDir(b.imagepath)
 	if err != nil {
 		return nil
 	}
 
-	res := map[deb.Distribution][]deb.Architecture{}
+	res := map[deb.Distribution]ArchitectureList{}
 	rx := regexp.MustCompile(`([a-z]+)-([a-z0-9]+)`)
 	for _, f := range allFiles {
 		if f.IsDir() == false {

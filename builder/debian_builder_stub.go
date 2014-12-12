@@ -16,12 +16,18 @@ type DebianBuilderStub struct {
 
 func (b *DebianBuilderStub) BuildPackage(args BuildArguments, out io.Writer) (*BuildResult, error) {
 	b.BuildCalled = true
+	if out != nil {
+		fmt.Fprintf(out, "Called BuildPackage\n")
+	}
 	return b.Res, b.Err
 }
 
 func (b *DebianBuilderStub) InitDistribution(d deb.Distribution, a deb.Architecture, out io.Writer) error {
 	if b.Err != nil {
 		return b.Err
+	}
+	if out != nil {
+		fmt.Fprintf(out, "Called InitDistribution\n")
 	}
 	b.DistAndArch[d] = append(b.DistAndArch[d], a)
 	return nil
@@ -57,6 +63,10 @@ func (b *DebianBuilderStub) RemoveDistribution(d deb.Distribution, a deb.Archite
 
 func (b *DebianBuilderStub) UpdateDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
 	archs, ok := b.DistAndArch[d]
+	if output != nil {
+		fmt.Fprintf(output, "Called UpdateDistribution\n")
+	}
+
 	if ok == false {
 		return fmt.Errorf("Distribution %s is not supported", d)
 	}

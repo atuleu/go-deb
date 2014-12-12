@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	deb "../"
@@ -45,6 +46,9 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 			},
 		},
 	}
+	dscFile, err := os.Create(s.dsc.Filename())
+	c.Assert(err, IsNil)
+	dscFile.Close()
 
 	s.builder = &DebianBuilderStub{
 		DistAndArch: map[deb.Distribution][]deb.Architecture{},
@@ -81,6 +85,11 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 	s.x.archiver = s.packageArchiver
 	s.x.localRepository = s.localApt
 	s.x.userDistConfig = s.distConfig
+}
+
+func (s *BuildUseCaseSuite) TearDownTest(c *C) {
+	err := os.Remove(s.dsc.Filename())
+	c.Assert(err, IsNil)
 }
 
 func (s *BuildUseCaseSuite) TestWorkingWorkflow(c *C) {

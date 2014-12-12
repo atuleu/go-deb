@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -111,9 +112,9 @@ func (r *Reprepro) writeDistributions() error {
 
 	for d, archs := range r.dists {
 		fmt.Fprintf(f, "Codename: %s\n", d)
-		fmt.Fprintf(f, "Origin: Local builder rpository\n")
-		fmt.Fprintf(f, "Label: Local builder rpository\n")
-		fmt.Fprintf(f, "Label: Description\n")
+		fmt.Fprintf(f, "Origin: Local builder repository\n")
+		fmt.Fprintf(f, "Label: Local builder repository\n")
+		fmt.Fprintf(f, "Description: Local builder repository\n")
 		fmt.Fprintf(f, "Components: main\n")
 		fmt.Fprintf(f, "SignWith: no\n")
 		fmt.Fprintf(f, "Architectures:")
@@ -185,9 +186,8 @@ func (r *Reprepro) ArchiveChanges(c *deb.ChangesFile, dir string) error {
 
 	allPackages, err := r.unsafeListPackages(targetDist)
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not list %s packages: %s", targetDist, err)
 	}
-
 	for _, b := range buildPackages {
 		if _, ok := allPackages[b]; ok == false {
 			continue
@@ -196,14 +196,12 @@ func (r *Reprepro) ArchiveChanges(c *deb.ChangesFile, dir string) error {
 			return err
 		}
 	}
-
 	cmd := exec.Command("reprepro",
 		"include",
 		string(targetDist),
 		path.Join(dir, c.Ref.Filename()))
 
 	cmd.Dir = r.basepath
-
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Could not archive result of %s build:\n %s", c.Ref.Filename(), output)
@@ -251,7 +249,7 @@ func (r *Reprepro) unsafeListPackages(d deb.Distribution) (map[deb.BinaryPackage
 	}
 
 	var output bytes.Buffer
-	cmd := exec.Command("reprepro", "list", string(d))
+	cmd := exec.Command("reprepro", "--list-format", "${package} ${version} ${architecture}\n", "list", string(d))
 	cmd.Dir = r.basepath
 	cmd.Stderr = &output
 	cmd.Stdout = &output
@@ -263,7 +261,7 @@ func (r *Reprepro) unsafeListPackages(d deb.Distribution) (map[deb.BinaryPackage
 
 	res := make(map[deb.BinaryPackageRef]bool)
 	eofReached := false
-	packRx := regexp.MustCompile(`^.*|.*|(.*): (.*) (.*)$`)
+	packRx := regexp.MustCompile(`^(.*) (.*) (.*)\n$`)
 	for eofReached == false {
 		l, err := output.ReadString('\n')
 		if err != nil {
@@ -276,24 +274,19 @@ func (r *Reprepro) unsafeListPackages(d deb.Distribution) (map[deb.BinaryPackage
 
 		matches := packRx.FindStringSubmatch(l)
 		if matches == nil {
-			return nil, fmt.Errorf("Could not parse reprepro list output line `%s', it does not match %s",
-				strings.TrimSpace(l),
-				packRx)
-		}
-
-		ver, err := deb.ParseVersion(matches[3])
-		if err != nil {
-			return nil, err
-		}
-
-		if matches[1] == "source" {
 			continue
 		}
 
+		ver, err := deb.ParseVersion(matches[2])
+		if err != nil {
+			log.Printf("Tried to parse `%s' : %s", l, matches)
+			return nil, err
+		}
+
 		p := deb.BinaryPackageRef{
-			Name: matches[2],
+			Name: matches[1],
 			Ver:  *ver,
-			Arch: deb.Architecture(matches[1]),
+			Arch: deb.Architecture(matches[3]),
 		}
 		res[p] = true
 	}

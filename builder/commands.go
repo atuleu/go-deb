@@ -181,7 +181,7 @@ func (x *BuildCommand) Execute(args []string) error {
 		return err
 	}
 
-	res, err := i.BuildPackage(*dsc, os.Stderr)
+	res, err := i.BuildPackage(*dsc, os.Stdout)
 	if err != nil {
 		return err
 	}

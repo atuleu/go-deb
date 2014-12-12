@@ -21,6 +21,8 @@ type SourceControlFile struct {
 	//A Format for a source file can be 1.0 3.0 (native) or 3.0 (quilt)
 	Format string
 
+	Archs []Architecture `field:"Architectures"`
+
 	// The maintainer email address, which is mandatory
 	Maintainer *mail.Address
 
@@ -58,6 +60,10 @@ func ParseDsc(r io.Reader) (*SourceControlFile, error) {
 		required: make([]string, 0),
 	}
 	for k, v := range p.fMapper {
+		if k == "Architecture" {
+			//we need this, but this is not mandatory according to debian policy
+			continue
+		}
 		if v != nil {
 			p.required = append(p.required, k)
 		}
@@ -92,7 +98,7 @@ var dscParsers = map[string]controlFieldParser{
 	"Format":                parseDscFormat,
 	"Source":                parseSource,
 	"Binary":                nil,
-	"Architecture":          nil,
+	"Architecture":          parseArchitecture,
 	"Version":               parseVersion,
 	"Maintainer":            parseMaintainer,
 	"Uploaders":             nil,

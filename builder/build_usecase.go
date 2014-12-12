@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
+	"os"
+	"path"
 
 	deb "../"
 )
@@ -50,18 +53,50 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 	if err != nil {
 		return nil, err
 	}
+	defer os.RemoveAll(dest)
 
+	//we copy dsc and source file there
+	dsc := a.Dsc
+	dsc.BasePath = dest
+	files := make([]string, 0, len(dsc.Md5Files)+1)
+	for _, f := range a.Dsc.Md5Files {
+		files = append(files, f.Name)
+	}
+	files = append(files, dsc.Filename())
+
+	for _, fPath := range files {
+		inPath := path.Join(a.Dsc.BasePath, fPath)
+		outPath := path.Join(dsc.BasePath, fPath)
+		inF, err := os.Open(inPath)
+		if err != nil {
+			return nil, err
+		}
+		outF, err := os.Create(outPath)
+		if err != nil {
+			return nil, err
+		}
+		_, err = io.Copy(outF, inF)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//we do the build
 	buildRes, err := x.builder.BuildPackage(BuildArguments{
-		SourcePackage: a.Dsc,
+		SourcePackage: dsc,
 		Dist:          targetDist,
 		Archs:         archs,
 		Deps:          []AptRepositoryAccess{x.localRepository.Access()},
 		Dest:          dest,
 	}, buildOut)
+	var archErr error = nil
+	if buildRes != nil {
+		log.Printf("archiving")
+		buildRes, archErr = x.archiver.ArchiveBuildResult(*buildRes)
+	}
 
-	buildRes, archErr := x.archiver.ArchiveBuildResult(*buildRes)
-
-	if archErr == nil {
+	if archErr == nil && buildRes != nil {
+		log.Printf("reprepro")
 		archErr = x.localRepository.ArchiveChanges(buildRes.Changes, buildRes.BasePath)
 	}
 

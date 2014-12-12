@@ -81,7 +81,7 @@ func (a *XdgArchiver) ensureSourceChanges(p deb.SourceControlFile, files []strin
 	if exists {
 		f, err := os.Open(sChangesPath)
 		if err != nil {
-			return nil, files, fmt.Errorf("Could not open %s: %s", sChangesPath, err)
+			return nil, files, err
 		}
 		unsigned, err := a.auth.CheckAnyClearsigned(f)
 		if err != nil {
@@ -180,7 +180,7 @@ func (a *XdgArchiver) binaryJsonName(p deb.SourcePackageRef) string {
 func (a *XdgArchiver) copyFile(inPath, outPath string) error {
 	in, err := os.Open(inPath)
 	if err != nil {
-		return fmt.Errorf("Could not open %s: %s", inPath, err)
+		return err
 	}
 	defer in.Close()
 	out, err := os.Create(outPath)
@@ -231,7 +231,7 @@ func (a *XdgArchiver) compareByteSlice(aa, bb []byte) bool {
 func (a *XdgArchiver) fileMd5(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("Could not open %s: %s", path, err)
+		return nil, err
 	}
 	h := md5.New()
 	if _, err = io.Copy(h, f); err != nil {
@@ -370,7 +370,7 @@ func (a *XdgArchiver) ArchiveSource(p deb.SourceControlFile) (*ArchivedSource, e
 	jsonDataPath := path.Join(finalDest, a.sourceJsonName(p.Identifier))
 	f, err := os.Create(jsonDataPath)
 	if err != nil {
-		return nil, fmt.Errorf("Could not create file %s: %s", jsonDataPath, err)
+		return nil, err
 	}
 	enc := json.NewEncoder(f)
 	err = enc.Encode(res)
@@ -401,6 +401,11 @@ func (a *XdgArchiver) ArchiveBuildResult(b BuildResult) (*BuildResult, error) {
 		return nil, err
 	}
 
+	err = os.MkdirAll(destPath, 0755)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, f := range b.Changes.Md5Files {
 		err := f.CheckFile(b.BasePath, md5.New())
 		if err != nil {
@@ -408,31 +413,35 @@ func (a *XdgArchiver) ArchiveBuildResult(b BuildResult) (*BuildResult, error) {
 		}
 		sourcePath := path.Join(b.BasePath, f.Name)
 		destPath := path.Join(destPath, f.Name)
-
 		err = a.copyFile(sourcePath, destPath)
 		if err != nil {
 			return nil, err
 		}
 	}
-
-	err = a.copyFile(changesPath, path.Join(destPath, b.ChangesPath))
+	finalChangesPath := path.Join(destPath, b.ChangesPath)
+	err = a.copyFile(changesPath, finalChangesPath)
 	if err != nil {
 		return nil, err
 	}
 
 	b.BasePath = destPath
 
-	jsonDataPath := path.Join(destPath, a.binaryJsonName(b.Changes.Ref.Identifier))
-	f, err := os.Open(jsonDataPath)
+	err = a.auth.SignChanges(finalChangesPath)
 	if err != nil {
-		return nil, fmt.Errorf("Could not open %s: %s", jsonDataPath, err)
+		return nil, err
+	}
+
+	jsonDataPath := path.Join(destPath, a.binaryJsonName(b.Changes.Ref.Identifier))
+	f, err := os.Create(jsonDataPath)
+	if err != nil {
+		return nil, err
 	}
 	defer f.Close()
 
 	enc := json.NewEncoder(f)
 	err = enc.Encode(b)
 	if err != nil {
-		return nil, fmt.Errorf("Could not save static data: %s", err)
+		return nil, err
 	}
 
 	return &b, nil
@@ -483,7 +492,7 @@ func (a *XdgArchiver) GetBuildResult(p deb.SourcePackageRef) (*BuildResult, erro
 	jsonDataPath := path.Join(basePath, a.binaryJsonName(p))
 	f, err := os.Open(jsonDataPath)
 	if err != nil {
-		return nil, fmt.Errorf("Could not open %s: %s", jsonDataPath, err)
+		return nil, err
 	}
 
 	dec := json.NewDecoder(f)

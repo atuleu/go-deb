@@ -64,7 +64,7 @@ func (h *XdgHistory) load() error {
 	defer f.Close()
 
 	dec := json.NewDecoder(f)
-	err = dec.Decode(h.data)
+	err = dec.Decode(&h.data)
 	if err != nil && err != io.EOF {
 		//we mask io.EOF error, because we could have an empty file
 		//as an history

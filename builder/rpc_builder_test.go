@@ -70,16 +70,20 @@ func (s *RpcBuilderSuite) TestBuild(c *C) {
 		Archs:         []deb.Architecture{deb.Amd64},
 		Deps:          nil,
 	}
-
-	b, err := s.c.BuildPackage(args, nil)
+	var out bytes.Buffer
+	b, err := s.c.BuildPackage(args, &out)
 	c.Check(err, IsNil)
 	c.Check(b, NotNil)
+	c.Check(out.String(), Equals, "Called BuildPackage\n")
 
 }
 
 func (s *RpcBuilderSuite) TestCreateAndRemove(c *C) {
-	err := s.c.InitDistribution("sid", deb.Amd64, nil)
+	var out bytes.Buffer
+	err := s.c.InitDistribution("sid", deb.Amd64, &out)
 	c.Check(err, IsNil)
+	c.Check(out.String(), Equals, "Called InitDistribution\n")
+
 	dists := s.c.AvailableDistributions()
 	c.Check(len(dists), Equals, 2)
 	for _, d := range dists {
@@ -96,8 +100,10 @@ func (s *RpcBuilderSuite) TestCreateAndRemove(c *C) {
 }
 
 func (s *RpcBuilderSuite) TestUpdateDistribution(c *C) {
-	err := s.c.UpdateDistribution("unstable", deb.Amd64, nil)
+	var out bytes.Buffer
+	err := s.c.UpdateDistribution("unstable", deb.Amd64, &out)
 	c.Check(err, IsNil)
+	c.Check(out.String(), Equals, "Called UpdateDistribution\n")
 	//cannot use sid in that example, it may or may not have been
 	//added by other test
 	err = s.c.UpdateDistribution("buzz", deb.Amd64, nil)
