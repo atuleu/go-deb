@@ -2,6 +2,9 @@ package deb
 
 import (
 	"fmt"
+	"hash"
+	"io"
+	"os"
 	"path"
 	"regexp"
 )
@@ -43,7 +46,7 @@ type BinaryPackageRef struct {
 
 type FileReference struct {
 	Checksum []byte
-	Size     uint
+	Size     int64
 	Name     string
 }
 
@@ -68,6 +71,30 @@ func NewRefFromFileName(p string) (*SourcePackageRef, error) {
 	}, nil
 }
 
-func (f *FileReference) CheckFile(basepath string) error {
-	return NotYetImplemented()
+func (f *FileReference) CheckFile(basepath string, h hash.Hash) error {
+	fPath := path.Join(basepath, f.Name)
+	fi, err := os.Stat(fPath)
+	if err != nil {
+		return err
+	}
+	if fi.Size() != f.Size {
+		return fmt.Errorf("Wrong file size %d, expected %d", fi.Size(), f.Size)
+	}
+
+	file, err := os.Open(fPath)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(h, file)
+	cs := h.Sum(nil)
+	err = fmt.Errorf("Mismatched checksum %x, expected %x", cs, f.Checksum)
+	if len(cs) != len(f.Checksum) {
+		return err
+	}
+	for idx, b := range f.Checksum {
+		if cs[idx] != b {
+			return err
+		}
+	}
+	return nil
 }
