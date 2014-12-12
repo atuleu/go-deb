@@ -64,7 +64,11 @@ func (a *XdgArchiver) ensureSourceChanges(p deb.SourceControlFile) (*deb.Changes
 	if err != nil {
 		return nil, fmt.Errorf("Could not create a working directory: %s", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			panic(err)
+		}
+	}()
 
 	//test if a source changes exists
 	sChangesPath := path.Join(p.BasePath, p.ChangesFilename())
@@ -228,7 +232,7 @@ func (a *XdgArchiver) fileMd5(path string) ([]byte, error) {
 	return h.Sum(nil), nil
 }
 
-func (a *XdgArchiver) copySourceFileToStage(p deb.SourceControlFile) ([]string, string, error) {
+func (a *XdgArchiver) copySourceFilesToStage(p deb.SourceControlFile) ([]string, string, error) {
 	toCopy := []string{}
 	copied := []string{}
 
@@ -246,7 +250,7 @@ func (a *XdgArchiver) copySourceFileToStage(p deb.SourceControlFile) ([]string, 
 	}
 
 	for _, f := range p.Md5Files {
-		err := f.CheckFile(p.BasePath)
+		err := f.CheckFile(p.BasePath, md5.New())
 		if err != nil {
 			return copied, dest, fmt.Errorf("Could not check %s: %s", f.Name, err)
 		}
@@ -304,7 +308,7 @@ func (a *XdgArchiver) ArchiveSource(p deb.SourceControlFile) (*ArchivedSource, e
 	}
 	defer a.unlockOrPanic()
 
-	files, dest, err := a.copySourceFileToStage(p)
+	files, dest, err := a.copySourceFilesToStage(p)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +374,7 @@ func (a *XdgArchiver) ArchiveBuildResult(b BuildResult) (*BuildResult, error) {
 	}
 
 	for _, f := range b.Changes.Md5Files {
-		err := f.CheckFile(b.BasePath)
+		err := f.CheckFile(b.BasePath, md5.New())
 		if err != nil {
 			return nil, err
 		}
