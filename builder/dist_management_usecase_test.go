@@ -2,39 +2,44 @@ package main
 
 import (
 	"fmt"
+	"sort"
 
 	deb ".."
 	. "gopkg.in/check.v1"
 )
 
 type UserDistSupportConfigStub struct {
-	supported map[deb.Distribution][]deb.Architecture
+	supported map[deb.Distribution]map[deb.Architecture]bool
 }
 
 func (c *UserDistSupportConfigStub) Add(d deb.Distribution, a deb.Architecture) error {
-	c.supported[d] = append(c.supported[d], a)
+	_, ok := c.supported[d]
+	if ok == false {
+		c.supported[d] = make(map[deb.Architecture]bool)
+	}
+	c.supported[d][a] = true
 	return nil
 }
 
 func (c *UserDistSupportConfigStub) Remove(d deb.Distribution, a deb.Architecture) error {
-	var archs []deb.Architecture
-	for _, aa := range c.supported[d] {
-		if a == aa {
-			continue
-		}
-		archs = append(archs, aa)
-	}
-
-	if len(archs) == 0 {
+	delete(c.supported[d], a)
+	if len(c.supported[d]) == 0 {
 		delete(c.supported, d)
-	} else {
-		c.supported[d] = archs
 	}
 	return nil
 }
 
-func (c *UserDistSupportConfigStub) Supported() map[deb.Distribution][]deb.Architecture {
-	return c.supported
+func (c *UserDistSupportConfigStub) Supported() map[deb.Distribution]ArchitectureList {
+	res := make(map[deb.Distribution]ArchitectureList)
+	for d, archs := range c.supported {
+		list := make(ArchitectureList, 0, len(archs))
+		for a, _ := range archs {
+			list = append(list, a)
+		}
+		sort.Sort(list)
+		res[d] = list
+	}
+	return res
 }
 
 type DistManagementUseCaseSuite struct {
@@ -51,7 +56,7 @@ func (s *DistManagementUseCaseSuite) SetUpSuite(c *C) {
 		DistAndArch: make(map[deb.Distribution][]deb.Architecture),
 	}
 	s.distConfig = &UserDistSupportConfigStub{
-		supported: make(map[deb.Distribution][]deb.Architecture),
+		supported: make(map[deb.Distribution]map[deb.Architecture]bool),
 	}
 	s.repo = &AptRepositoryStub{}
 
@@ -123,6 +128,6 @@ func (s *DistManagementUseCaseSuite) TestAddAndRemoveDistribution(c *C) {
 
 	data, err = s.x.GetSupportedDistribution()
 	c.Check(data, IsNil)
-	c.Check(err, ErrorMatches, "System consistency error: user list distributions unstable:.i386 amd64., but builder does not support i386 for unstable")
+	c.Check(err, ErrorMatches, "System consistency error: user list distributions unstable:.amd64 i386., but builder does not support i386 for unstable")
 
 }

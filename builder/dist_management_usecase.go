@@ -8,9 +8,25 @@ import (
 	deb ".."
 )
 
+type ArchitectureList []deb.Architecture
+
+func (l ArchitectureList) Len() int {
+	return len(l)
+}
+
+func (l ArchitectureList) Less(i, j int) bool {
+	return l[i] < l[j]
+}
+
+func (l ArchitectureList) Swap(i, j int) {
+	tmp := l[i]
+	l[i] = l[j]
+	l[j] = tmp
+}
+
 type UserDistSupportConfig interface {
 	Add(d deb.Distribution, a deb.Architecture) error
-	Supported() map[deb.Distribution][]deb.Architecture
+	Supported() map[deb.Distribution]ArchitectureList
 	Remove(d deb.Distribution, a deb.Architecture) error
 }
 

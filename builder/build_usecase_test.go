@@ -71,8 +71,8 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 	s.localApt.AddDistribution("unstable", deb.Amd64)
 	s.history = &HistoryStub{}
 	s.distConfig = &UserDistSupportConfigStub{
-		supported: map[deb.Distribution][]deb.Architecture{
-			"unstable": []deb.Architecture{deb.Amd64},
+		supported: map[deb.Distribution]map[deb.Architecture]bool{
+			"unstable": map[deb.Architecture]bool{deb.Amd64: true},
 		},
 	}
 

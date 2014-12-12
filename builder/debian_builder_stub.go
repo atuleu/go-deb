@@ -87,7 +87,7 @@ func (b *DebianBuilderStub) AvailableDistributions() []deb.Distribution {
 	return res
 }
 
-func (b *DebianBuilderStub) AvailableArchitectures(d deb.Distribution) []deb.Architecture {
+func (b *DebianBuilderStub) AvailableArchitectures(d deb.Distribution) ArchitectureList {
 	return b.DistAndArch[d]
 }
 

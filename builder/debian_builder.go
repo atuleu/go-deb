@@ -41,5 +41,5 @@ type DebianBuilder interface {
 	RemoveDistribution(d deb.Distribution, a deb.Architecture) error
 	UpdateDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error
 	AvailableDistributions() []deb.Distribution
-	AvailableArchitectures(d deb.Distribution) []deb.Architecture
+	AvailableArchitectures(d deb.Distribution) ArchitectureList
 }

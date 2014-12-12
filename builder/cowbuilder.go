@@ -394,7 +394,7 @@ func (b *Cowbuilder) AvailableDistributions() []deb.Distribution {
 	return res
 }
 
-func (b *Cowbuilder) AvailableArchitectures(d deb.Distribution) []deb.Architecture {
+func (b *Cowbuilder) AvailableArchitectures(d deb.Distribution) ArchitectureList {
 	b.acquire()
 	defer b.release()
 

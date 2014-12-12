@@ -133,8 +133,8 @@ func (c *ClientBuilder) AvailableDistributions() []deb.Distribution {
 	return res.Dists
 }
 
-func (c *ClientBuilder) AvailableArchitectures(d deb.Distribution) []deb.Architecture {
-	res := ArchitectureList{}
+func (c *ClientBuilder) AvailableArchitectures(d deb.Distribution) ArchitectureList {
+	res := ArchitectureListReturn{}
 	if err := c.conn.Call("RpcBuilder.AvailableArchitectures", d, &res); err != nil {
 		panic(err)
 	}
@@ -354,11 +354,11 @@ func (b *RpcBuilder) AvailableDistributions(arg NoValue, res *DistributionList) 
 	return nil
 }
 
-type ArchitectureList struct {
-	Archs []deb.Architecture
+type ArchitectureListReturn struct {
+	Archs ArchitectureList
 }
 
-func (b *RpcBuilder) AvailableArchitectures(d deb.Distribution, res *ArchitectureList) error {
+func (b *RpcBuilder) AvailableArchitectures(d deb.Distribution, res *ArchitectureListReturn) error {
 	res.Archs = b.actualBuilder.AvailableArchitectures(d)
 	return nil
 }

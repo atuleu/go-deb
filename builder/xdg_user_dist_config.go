@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"sort"
 
 	deb ".."
 	"github.com/nightlyone/lockfile"
@@ -13,7 +14,7 @@ import (
 )
 
 type XdgUserDistConfig struct {
-	supported map[deb.Distribution][]deb.Architecture
+	supported map[deb.Distribution]map[deb.Architecture]bool
 
 	dataPath string
 	lock     lockfile.Lockfile
@@ -21,7 +22,7 @@ type XdgUserDistConfig struct {
 
 func NewXdgUserDistConfig() (*XdgUserDistConfig, error) {
 	res := &XdgUserDistConfig{
-		supported: make(map[deb.Distribution][]deb.Architecture),
+		supported: make(map[deb.Distribution]map[deb.Architecture]bool),
 	}
 	var err error
 	res.dataPath, err = xdg.Config.Ensure("go-deb.builder/dist-config.json")
@@ -89,15 +90,27 @@ func (c *XdgUserDistConfig) save() error {
 	return enc.Encode(c.supported)
 }
 
-func (c *XdgUserDistConfig) Supported() map[deb.Distribution][]deb.Architecture {
-	return c.supported
+func (c *XdgUserDistConfig) Supported() map[deb.Distribution]ArchitectureList {
+	res := make(map[deb.Distribution]ArchitectureList)
+	for d, archs := range c.supported {
+		list := make(ArchitectureList, 0, len(archs))
+		for a, _ := range archs {
+			list = append(list, a)
+		}
+		sort.Sort(list)
+		res[d] = list
+	}
+	return res
 }
 
 func (c *XdgUserDistConfig) Add(d deb.Distribution, a deb.Architecture) error {
-	oldSupp := c.supported[d]
-	c.supported[d] = append(oldSupp, a)
+	oldSupp, ok := c.supported[d]
+	if ok == false {
+		c.supported[d] = make(map[deb.Architecture]bool)
+	}
+	c.supported[d][a] = true
 	if err := c.save(); err != nil {
-		if len(oldSupp) == 0 {
+		if ok == false {
 			delete(c.supported, d)
 		} else {
 			c.supported[d] = oldSupp
@@ -108,32 +121,18 @@ func (c *XdgUserDistConfig) Add(d deb.Distribution, a deb.Architecture) error {
 }
 
 func (c *XdgUserDistConfig) Remove(d deb.Distribution, a deb.Architecture) error {
-	oldArchs := c.supported[d]
-	newArchs := []deb.Architecture{}
-	found := false
-
-	for _, aa := range oldArchs {
-		if a == aa {
-			found = true
-			continue
-		}
-		newArchs = append(newArchs, aa)
-	}
-
-	if found == false {
-		return nil
-	}
-
-	if len(newArchs) == 0 {
+	oldArchs, ok := c.supported[d]
+	delete(c.supported[d], a)
+	if len(c.supported[d]) == 0 {
 		delete(c.supported, d)
-	} else {
-		c.supported[d] = newArchs
 	}
 
 	if err := c.save(); err != nil {
 		// condition always true here, len(oldArchs) >= 1 (contains at
 		// least 'a')
-		c.supported[d] = oldArchs
+		if ok == true {
+			c.supported[d] = oldArchs
+		}
 
 		return err
 	}
