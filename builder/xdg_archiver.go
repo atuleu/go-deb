@@ -22,12 +22,12 @@ import (
 type XdgArchiver struct {
 	basepath string
 	lock     lockfile.Lockfile
-	a        *DebfileAuthentifier
+	auth     DebfileAuthentifier
 }
 
 var xaLockName = "go-dev.builder/archives/global.lock"
 
-func NewXdgArchiver(a *DebfileAuthentifier) (*XdgArchiver, error) {
+func NewXdgArchiver(auth DebfileAuthentifier) (*XdgArchiver, error) {
 	lockpath, err := xdg.Data.Ensure(xaLockName)
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func NewXdgArchiver(a *DebfileAuthentifier) (*XdgArchiver, error) {
 
 	res := &XdgArchiver{
 		basepath: path.Dir(lockpath),
-		a:        a,
+		auth:     auth,
 	}
 	res.lock, err = lockfile.New(lockpath)
 	if err != nil {
@@ -58,11 +58,11 @@ func (a *XdgArchiver) unlockOrPanic() {
 	}
 }
 
-func (a *XdgArchiver) ensureSourceChanges(p deb.SourceControlFile) (*deb.ChangesFile, error) {
+func (a *XdgArchiver) ensureSourceChanges(p deb.SourceControlFile, files []string) (*deb.ChangesFile, []string, error) {
 	//we create a temp directory that will hold the extracted data:
 	tmpDir, err := ioutil.TempDir("", "xdg-archiver-source-package_")
 	if err != nil {
-		return nil, fmt.Errorf("Could not create a working directory: %s", err)
+		return nil, files, fmt.Errorf("Could not create a working directory: %s", err)
 	}
 	defer func() {
 		if err := os.RemoveAll(tmpDir); err != nil {
@@ -75,31 +75,40 @@ func (a *XdgArchiver) ensureSourceChanges(p deb.SourceControlFile) (*deb.Changes
 
 	exists, err := a.fileExists(sChangesPath)
 	if err != nil {
-		return nil, err
+		return nil, files, err
 	}
 
 	if exists {
 		f, err := os.Open(sChangesPath)
 		if err != nil {
-			return nil, fmt.Errorf("Could not open %s: %s", sChangesPath, err)
+			return nil, files, fmt.Errorf("Could not open %s: %s", sChangesPath, err)
 		}
-		unsigned, err := a.a.CheckAnyClearsigned(f)
+		unsigned, err := a.auth.CheckAnyClearsigned(f)
 		if err != nil {
-			return nil, err
+			return nil, files, err
 		}
 
-		return deb.ParseChangeFile(unsigned)
+		c, err := deb.ParseChangeFile(unsigned)
+		if err != nil {
+			return nil, files, err
+		}
+		return c, files, nil
 	}
 
-	extractedDir := path.Join(tmpDir, p.Identifier.String())
+	err = a.copyListOfFile(p.BasePath, tmpDir, files)
+	if err != nil {
+		return nil, files, err
+	}
+
 	cmd := exec.Command("dpkg-source", "-x",
-		path.Join(p.BasePath, p.Filename()),
-		extractedDir)
+		p.Filename())
+	cmd.Dir = tmpDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("Could not extract source package:\n%s", output)
+		return nil, files, fmt.Errorf("Could not extract source package:\n%s", output)
 	}
 
+	extractedDir := path.Join(tmpDir, fmt.Sprintf("%s-%s", p.Identifier.Source, p.Identifier.Ver.UpstreamVersion))
 	cmd = exec.Command("dpkg-genchanges", "-S")
 	var toParse, changes, out bytes.Buffer
 	cmd.Stdout = io.MultiWriter(&changes, &toParse)
@@ -107,28 +116,27 @@ func (a *XdgArchiver) ensureSourceChanges(p deb.SourceControlFile) (*deb.Changes
 	cmd.Dir = extractedDir
 	err = cmd.Run()
 	if err != nil {
-		return nil, fmt.Errorf("Could not generate .changes file :\n%s", out.String())
+		return nil, files, fmt.Errorf("Could not generate .changes file :\n%s", out.String())
 	}
 
 	res, err := deb.ParseChangeFile(&toParse)
 	if err != nil {
-		return nil, err
+		return nil, files, err
 	}
 
 	err = ioutil.WriteFile(sChangesPath, changes.Bytes(), 0644)
 	if err != nil {
-		return nil, fmt.Errorf("Could not write %s: %s", sChangesPath, err)
+		return nil, files, fmt.Errorf("Could not write %s: %s", sChangesPath, err)
 	}
 
-	cmd = exec.Command("debsign", "-S", "-no-re-sign", sChangesPath)
-	//debsign should use ssh-agent, gnome-keyring-agent but not stdin
-	cmd.Stdin = nil
-	output, err = cmd.CombinedOutput()
+	files = append(files, path.Base(sChangesPath))
+
+	err = a.auth.SignChanges(sChangesPath)
 	if err != nil {
-		return nil, fmt.Errorf("Could not sign .changes file:\n%s", output)
+		return nil, files, err
 	}
 
-	return res, nil
+	return res, files, nil
 
 }
 
@@ -232,27 +240,18 @@ func (a *XdgArchiver) fileMd5(path string) ([]byte, error) {
 	return h.Sum(nil), nil
 }
 
-func (a *XdgArchiver) copySourceFilesToStage(p deb.SourceControlFile) ([]string, string, error) {
+func (a *XdgArchiver) listAndCheckFiles(p deb.SourceControlFile) ([]string, error) {
 	toCopy := []string{}
-	copied := []string{}
 
 	dest, err := a.sourceStorePath(p.Identifier)
 	if err != nil {
-		return copied, dest, err
-	}
-	// first stage the file
-	dest = path.Join(dest, "stage")
-
-	//makes sure directory exists !
-	err = os.MkdirAll(dest, 0755)
-	if err != nil {
-		return copied, dest, err
+		return toCopy, err
 	}
 
 	for _, f := range p.Md5Files {
 		err := f.CheckFile(p.BasePath, md5.New())
 		if err != nil {
-			return copied, dest, fmt.Errorf("Could not check %s: %s", f.Name, err)
+			return toCopy, fmt.Errorf("Could not check %s: %s", f.Name, err)
 		}
 		if strings.Contains(f.Name, ".orig.tar") == false {
 			toCopy = append(toCopy, f.Name)
@@ -262,7 +261,7 @@ func (a *XdgArchiver) copySourceFilesToStage(p deb.SourceControlFile) ([]string,
 		finalOut := path.Join(dest, f.Name)
 		exists, err := a.fileExists(finalOut)
 		if err != nil {
-			return copied, dest, err
+			return toCopy, err
 		}
 
 		if exists == false {
@@ -272,34 +271,62 @@ func (a *XdgArchiver) copySourceFilesToStage(p deb.SourceControlFile) ([]string,
 
 		cs, err := a.fileMd5(finalOut)
 		if err != nil {
-			return copied, dest, err
+			return toCopy, err
 		}
 		if a.compareByteSlice(cs, f.Checksum) == false {
-			return copied, dest, fmt.Errorf("File %s already exists and has different checksum", finalOut)
+			return toCopy, fmt.Errorf("File %s already exists and has different checksum", finalOut)
 		}
-
 	}
-
 	toCopy = append(toCopy, p.Filename())
 
 	exists, err := a.fileExists(path.Join(p.BasePath, p.ChangesFilename()))
 	if err != nil {
-		return copied, dest, err
+		return toCopy, err
 	}
-	if exists {
+	if exists == true {
 		toCopy = append(toCopy, p.ChangesFilename())
 	}
 
-	for _, f := range toCopy {
-		inPath := path.Join(p.BasePath, f)
-		outPath := path.Join(dest, f)
+	return toCopy, nil
+}
 
-		if err := a.copyFile(inPath, outPath); err != nil {
-			return copied, dest, err
-		}
-		copied = append(copied, outPath)
+func (a *XdgArchiver) copyListOfFile(inPath, outPath string, files []string) error {
+	if inPath == outPath {
+		return nil
 	}
-	return copied, dest, nil
+	for _, f := range files {
+		inFile := path.Join(inPath, f)
+		outFile := path.Join(outPath, f)
+
+		if err := a.copyFile(inFile, outFile); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *XdgArchiver) copySourceFilesToStage(p deb.SourceControlFile) ([]string, string, error) {
+	dest, err := a.sourceStorePath(p.Identifier)
+	if err != nil {
+		return []string{}, dest, err
+	}
+	// first stage the file
+	dest = path.Join(dest, "stage")
+
+	toCopy, err := a.listAndCheckFiles(p)
+	if err != nil {
+		return toCopy, dest, err
+	}
+
+	//makes sure directory exists !
+	err = os.MkdirAll(dest, 0755)
+	if err != nil {
+		return toCopy, dest, err
+	}
+
+	err = a.copyListOfFile(p.BasePath, dest, toCopy)
+
+	return toCopy, dest, err
 }
 
 func (a *XdgArchiver) ArchiveSource(p deb.SourceControlFile) (*ArchivedSource, error) {
@@ -316,7 +343,7 @@ func (a *XdgArchiver) ArchiveSource(p deb.SourceControlFile) (*ArchivedSource, e
 	defer os.RemoveAll(dest)
 
 	p.BasePath = dest
-	changes, err := a.ensureSourceChanges(p)
+	changes, files, err := a.ensureSourceChanges(p, files)
 	if err != nil {
 		return nil, err
 	}
@@ -324,8 +351,9 @@ func (a *XdgArchiver) ArchiveSource(p deb.SourceControlFile) (*ArchivedSource, e
 	//now that everything is fine and signed, we move it to the final destination
 	finalDest := path.Dir(dest)
 	for _, f := range files {
-		fDest := path.Join(finalDest, path.Base(f))
-		err := os.Rename(f, fDest)
+		fTarget := path.Join(dest, f)
+		fDest := path.Join(finalDest, f)
+		err := os.Rename(fTarget, fDest)
 		if err != nil {
 			return nil, err
 		}

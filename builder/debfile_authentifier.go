@@ -6,15 +6,21 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 )
 
+type DebfileAuthentifier interface {
+	CheckAnyClearsigned(r io.Reader) (io.Reader, error)
+	SignChanges(filePath string) error
+}
+
 // A module that can read and check clearsigned content, and sign
 // necessary dsc and control file
-type DebfileAuthentifier struct {
+type GnupgAuthentifier struct {
 	kr          openpgp.KeyRing
 	pubringPath string
 }
@@ -23,14 +29,14 @@ var gnupgHomeEnv = "GNUPGHOME"
 
 // Creates a new authentifier that use the user gnupg data to check
 // signature.
-func NewAuthentifier() (*DebfileAuthentifier, error) {
+func NewAuthentifier() (*GnupgAuthentifier, error) {
 	gnupghome := os.Getenv(gnupgHomeEnv)
 
 	if len(gnupghome) == 0 {
 		gnupghome = path.Join(os.Getenv("HOME"), ".gnupg")
 	}
 
-	res := &DebfileAuthentifier{}
+	res := &GnupgAuthentifier{}
 
 	res.pubringPath = path.Join(gnupghome, "pubring.gpg")
 	f, err := os.Open(res.pubringPath)
@@ -48,7 +54,7 @@ func NewAuthentifier() (*DebfileAuthentifier, error) {
 
 // Reads a debian clearsigned file (.changes, .dsc) check the
 // signature if any , and returns a plaintext version.
-func (a *DebfileAuthentifier) CheckAnyClearsigned(r io.Reader) (io.Reader, error) {
+func (a *GnupgAuthentifier) CheckAnyClearsigned(r io.Reader) (io.Reader, error) {
 	//we need to read all the file
 	allData, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -72,6 +78,20 @@ func (a *DebfileAuthentifier) CheckAnyClearsigned(r io.Reader) (io.Reader, error
 	}
 
 	return bytes.NewReader(block.Plaintext), nil
+}
+
+func (a *GnupgAuthentifier) SignChanges(filePath string) error {
+	if path.Ext(filePath) != ".changes" {
+		return fmt.Errorf("invalid file to sign %s", filePath)
+	}
+	cmd := exec.Command("debsign", "-S", "--no-re-sign", filePath)
+	//debsign should use ssh-agent, gnome-keyring-agent but not stdin
+	cmd.Stdin = nil
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Could not sign .changes file:\n%s", output)
+	}
+	return nil
 }
 
 func init() {

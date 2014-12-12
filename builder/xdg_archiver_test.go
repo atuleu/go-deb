@@ -21,6 +21,27 @@ type XdgArchiverSuite struct {
 	dscFile  *deb.SourceControlFile
 }
 
+type DebfileAuthentifierStub struct{}
+
+// simply decode the clearsign and don't check signature
+func (a *DebfileAuthentifierStub) CheckAnyClearsigned(r io.Reader) (io.Reader, error) {
+	allData, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	block, rest := clearsign.Decode(allData)
+	if block == nil {
+		return bytes.NewReader(rest), nil
+	}
+
+	return bytes.NewReader(block.Plaintext), nil
+}
+
+func (a *DebfileAuthentifierStub) SignChanges(filePath string) error {
+	return nil
+}
+
 var _ = Suite(&XdgArchiverSuite{})
 
 func (s *XdgArchiverSuite) SetUpSuite(c *C) {
@@ -28,8 +49,7 @@ func (s *XdgArchiverSuite) SetUpSuite(c *C) {
 	err := s.h.SetUp()
 	c.Assert(err, IsNil)
 
-	auth, err := NewAuthentifier()
-	c.Assert(err, IsNil)
+	auth := &DebfileAuthentifierStub{}
 	s.archiver, err = NewXdgArchiver(auth)
 	c.Assert(err, IsNil)
 
@@ -64,16 +84,8 @@ func (s *XdgArchiverSuite) SetUpSuite(c *C) {
 	c.Assert(ver, NotNil)
 	f, err := os.Open(path.Join(home, fmt.Sprintf("aha_%s.dsc", *ver)))
 	c.Assert(err, IsNil)
-	allData, err := ioutil.ReadAll(f)
-	c.Assert(err, IsNil)
-	block, rest := clearsign.Decode(allData)
+	unsigned, err := auth.CheckAnyClearsigned(f)
 
-	var unsigned io.Reader = nil
-	if block == nil {
-		unsigned = bytes.NewReader(rest)
-	} else {
-		unsigned = bytes.NewReader(block.Plaintext)
-	}
 	s.dscFile, err = deb.ParseDsc(unsigned)
 	c.Assert(err, IsNil)
 	s.dscFile.BasePath = home

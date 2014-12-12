@@ -174,6 +174,8 @@ func (x *BuildCommand) Execute(args []string) error {
 		return err
 	}
 
+	dsc.BasePath = path.Dir(args[0])
+
 	i, err := NewInteractor(options)
 	if err != nil {
 		return err
