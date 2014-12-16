@@ -9,8 +9,8 @@ import (
 )
 
 type AptRepositoryAccess struct {
-	Dist       deb.Distribution
-	Component  deb.Component
+	Dists      []deb.Distribution
+	Components []deb.Component
 	Address    string
 	SigningKey *packet.PublicKey
 }

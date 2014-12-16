@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -137,7 +138,7 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 		return nil, err
 	}
 
-	//TODO: sets hooks for dependencies
+	// creates output buffers and result structures
 	var buf bytes.Buffer
 	changesFiles := []string{}
 	var writer io.Writer = &buf
@@ -172,11 +173,10 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 			}
 			debbuildopts = append(debbuildopts, "-B")
 		}
-		cmd, err = b.cowbuilderCommand(a.Dist, arch, "--build",
+		cmd, err = b.cowbuilderCommand(a.Dist, arch, a.Deps, "--build",
 			"--debbuildopts", `"`+strings.Join(debbuildopts, " ")+`"`,
 			"--buildresult", a.Dest,
 			dscFile)
-
 		if err != nil {
 			return nil, err
 		}
@@ -250,7 +250,7 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 }
 
 // returns an equivalent of .pbuilderrc run
-func (b *Cowbuilder) cowbuilderCommand(d deb.Distribution, a deb.Architecture, command string, args ...string) (*exec.Cmd, error) {
+func (b *Cowbuilder) cowbuilderCommand(d deb.Distribution, a deb.Architecture, deps []AptRepositoryAccess, command string, args ...string) (*exec.Cmd, error) {
 
 	isUbuntu, err := b.isSupportedUbuntu(d)
 	if err != nil {
@@ -279,6 +279,12 @@ func (b *Cowbuilder) cowbuilderCommand(d deb.Distribution, a deb.Architecture, c
 			return nil, err
 		}
 	}
+
+	bindmounts, err := b.setHooksForRepoDeps(d, deps)
+	if err != nil {
+		return nil, err
+	}
+
 	preDebootstrapOpts := fmt.Sprintf("\"--arch\" \"%s\"", a)
 	var mirror, components, mirrorsite, postDebootstrapOpts string
 	if isUbuntu == true {
@@ -313,6 +319,7 @@ func (b *Cowbuilder) cowbuilderCommand(d deb.Distribution, a deb.Architecture, c
 	fmt.Fprintf(f, "%s=\"%s\"\n", "MIRROR", mirror)
 	fmt.Fprintf(f, "%s=\"%s\"\n", "MIRRORSITE", mirrorsite)
 	fmt.Fprintf(f, "%s=\"%s\"\n", "COMPONENTS", components)
+	fmt.Fprintf(f, "%s=\"%s\"\n", "BINDMOUNTS", strings.Join(bindmounts, " "))
 
 	return cmd, nil
 }
@@ -361,7 +368,7 @@ func (b *Cowbuilder) InitDistribution(d deb.Distribution, a deb.Architecture, ou
 		return fmt.Errorf("Architecture %s is not in the supported architecture list %v.", a, b.supported)
 	}
 
-	cmd, err := b.cowbuilderCommand(d, a, "--create")
+	cmd, err := b.cowbuilderCommand(d, a, nil, "--create")
 
 	cmd.Stdout = output
 	cmd.Stderr = output
@@ -393,7 +400,7 @@ func (b *Cowbuilder) UpdateDistribution(d deb.Distribution, a deb.Architecture, 
 		return fmt.Errorf("Distribution %s architecture %s is not supported", d, a)
 	}
 
-	cmd, err := b.cowbuilderCommand(d, a, "--update")
+	cmd, err := b.cowbuilderCommand(d, a, nil, "--update")
 	if err != nil {
 		return err
 	}
@@ -503,6 +510,72 @@ func (b *Cowbuilder) getSupportedArchitectures() {
 	case "arm":
 		b.supported = []deb.Architecture{deb.Armel}
 	}
+}
+
+func (b *Cowbuilder) setHooksForRepoDeps(targetDist deb.Distribution, deps []AptRepositoryAccess) ([]string, error) {
+	var content bytes.Buffer
+	fmt.Fprintf(&content, `#!/bin/bash
+listfile=/etc/apt/sources.list.d/deps.list
+if [ -e $listfile ]
+then
+	rm -Rf $listfile
+fi
+
+`)
+	bindmounts := make([]string, 0, len(deps))
+
+	for _, dep := range deps {
+		found := false
+		for _, d := range dep.Dists {
+			if d == targetDist {
+				found = true
+				break
+			}
+		}
+		if found == false {
+			return nil, fmt.Errorf("Could not set dependency on apt repository %s, it provides %v but %s needed",
+				dep.Address, dep.Dists, targetDist)
+		}
+
+		if dep.SigningKey != nil {
+			return nil, fmt.Errorf("Signed repository are not supported yet")
+		}
+
+		if strings.HasPrefix(dep.Address, "file:/") == true {
+			localpath := strings.TrimPrefix(dep.Address, "file:")
+			if _, err := os.Stat(path.Join(localpath, "dists")); err != nil {
+				if os.IsNotExist(err) == false {
+					return nil, err
+				} else {
+					log.Printf("Skipping dependency %s:  %s", dep.Address, err)
+					continue
+				}
+			}
+			bindmounts = append(bindmounts, localpath)
+		}
+
+		fmt.Fprintf(&content, "echo \"deb [trusted=yes] %s %s", dep.Address, targetDist)
+		for _, c := range dep.Components {
+			fmt.Fprintf(&content, " %s", c)
+		}
+		fmt.Fprintf(&content, "\" >> $listfile")
+	}
+	fmt.Fprintf(&content, "\napt-get update\n")
+	f, err := os.Create(path.Join(b.hookspath, "D01_apt_dep.sh"))
+	if err != nil {
+		return bindmounts, err
+	}
+	defer f.Close()
+	err = f.Chmod(0755)
+	if err != nil {
+		return bindmounts, err
+	}
+	_, err = io.Copy(f, &content)
+	if err != nil {
+		return bindmounts, err
+	}
+
+	return bindmounts, nil
 }
 
 func init() {

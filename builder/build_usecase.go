@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 
@@ -91,12 +90,10 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 	}, buildOut)
 	var archErr error = nil
 	if buildRes != nil {
-		log.Printf("archiving")
 		buildRes, archErr = x.archiver.ArchiveBuildResult(*buildRes)
 	}
 
 	if archErr == nil && buildRes != nil {
-		log.Printf("reprepro")
 		archErr = x.localRepository.ArchiveChanges(buildRes.Changes, buildRes.BasePath)
 	}
 

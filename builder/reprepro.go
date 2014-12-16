@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -116,7 +116,6 @@ func (r *Reprepro) writeDistributions() error {
 		fmt.Fprintf(f, "Label: Local builder repository\n")
 		fmt.Fprintf(f, "Description: Local builder repository\n")
 		fmt.Fprintf(f, "Components: main\n")
-		fmt.Fprintf(f, "SignWith: no\n")
 		fmt.Fprintf(f, "Architectures:")
 		for _, a := range archs {
 			fmt.Fprintf(f, " %s", a)
@@ -261,9 +260,10 @@ func (r *Reprepro) unsafeListPackages(d deb.Distribution) (map[deb.BinaryPackage
 
 	res := make(map[deb.BinaryPackageRef]bool)
 	eofReached := false
-	packRx := regexp.MustCompile(`^(.*) (.*) (.*)\n$`)
+	packRx := regexp.MustCompile(`^([a-z0-9][a-z0-9\+\-\.]+) ([^ ]+) ([^ ]+)\n$`)
 	for eofReached == false {
-		l, err := output.ReadString('\n')
+		line, err := output.ReadString('\n')
+
 		if err != nil {
 			if err == io.EOF {
 				eofReached = true
@@ -272,14 +272,13 @@ func (r *Reprepro) unsafeListPackages(d deb.Distribution) (map[deb.BinaryPackage
 			}
 		}
 
-		matches := packRx.FindStringSubmatch(l)
+		matches := packRx.FindStringSubmatch(line)
 		if matches == nil {
 			continue
 		}
 
 		ver, err := deb.ParseVersion(matches[2])
 		if err != nil {
-			log.Printf("Tried to parse `%s' : %s", l, matches)
 			return nil, err
 		}
 
@@ -332,7 +331,17 @@ func (r *Reprepro) RemovePackage(d deb.Distribution, p deb.BinaryPackageRef) err
 }
 
 func (r *Reprepro) Access() AptRepositoryAccess {
-	return AptRepositoryAccess{}
+	dists := make([]deb.Distribution, 0, len(r.dists))
+	for d, _ := range r.dists {
+		dists = append(dists, d)
+	}
+	absPath, _ := filepath.Abs(r.basepath)
+	return AptRepositoryAccess{
+		Dists:      dists,
+		Components: []deb.Component{"main"},
+		Address:    fmt.Sprintf("file:%s", absPath),
+		SigningKey: nil,
+	}
 }
 
 func init() {

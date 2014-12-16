@@ -13,6 +13,7 @@ type Interactor struct {
 	builder         DebianBuilder
 	history         History
 	userDistConfig  UserDistSupportConfig
+	auth            DebfileAuthentifier
 }
 
 func NewInteractor(o *Options) (*Interactor, error) {
@@ -43,12 +44,12 @@ func NewInteractor(o *Options) (*Interactor, error) {
 		return nil, err
 	}
 
-	auth, err := NewAuthentifier()
+	res.auth, err = NewAuthentifier()
 	if err != nil {
 		return nil, err
 	}
 
-	res.archiver, err = NewXdgArchiver(auth)
+	res.archiver, err = NewXdgArchiver(res.auth)
 	if err != nil {
 		return nil, err
 	}

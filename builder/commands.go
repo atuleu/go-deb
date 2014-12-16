@@ -169,17 +169,22 @@ func (x *BuildCommand) Execute(args []string) error {
 		return err
 	}
 
-	dsc, err := deb.ParseDsc(f)
+	i, err := NewInteractor(options)
+	if err != nil {
+		return err
+	}
+	// we use a stub auth to remove the signature
+	cleared, err := i.auth.CheckAnyClearsigned(f)
+	if err != nil {
+		return err
+	}
+
+	dsc, err := deb.ParseDsc(cleared)
 	if err != nil {
 		return err
 	}
 
 	dsc.BasePath = path.Dir(args[0])
-
-	i, err := NewInteractor(options)
-	if err != nil {
-		return err
-	}
 
 	res, err := i.BuildPackage(*dsc, os.Stdout)
 	if err != nil {
