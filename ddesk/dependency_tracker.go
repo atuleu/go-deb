@@ -28,7 +28,7 @@ const (
 )
 
 func getPackageStatus(p AptPackage) (packageStatus, error) {
-	cmd := exec.Command("apt-cache", "show", string(p))
+	cmd := exec.Command("apt-cache", "policy", string(p))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return unreachable, fmt.Errorf("Could not check package `%s' status: ", err)

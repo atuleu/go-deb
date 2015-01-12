@@ -196,6 +196,16 @@ func (x *BuildCommand) Execute(args []string) error {
 	return nil
 }
 
+type InitInstallCommand struct{}
+
+func (x *InitInstallCommand) Execute(args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("install takes only one argument")
+	}
+
+	return aptDepTracker.SatisfyAll()
+}
+
 func init() {
 	parser.AddCommand("serve-builder",
 		"Starts a package builder as a RPC service.",
@@ -226,4 +236,9 @@ func init() {
 		"Builds a .dsc file",
 		"build will start a build for all architecture the user supports given a .dsc file. Distribution will be infered from the debian/changelog",
 		&BuildCommand{})
+
+	parser.AddCommand("install",
+		"Install necessary files to the system",
+		"Installs all necessary files to the system, likes package dependency, groups, and services",
+		&InitInstallCommand{})
 }
