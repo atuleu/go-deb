@@ -70,7 +70,7 @@ func (x *Interactor) ProcessChangesFile(filepath string) (*IncludeResult, error)
 		FilesToRemove: make([]string, 0, 3),
 	}
 
-	if strings.HasSuffix(filepath, ".changes") {
+	if strings.HasSuffix(filepath, ".changes") == false {
 		return res, fmt.Errorf("Invalid filename %s", filepath)
 	}
 
