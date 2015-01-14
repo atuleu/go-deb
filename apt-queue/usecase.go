@@ -60,6 +60,7 @@ func (x *Interactor) ListDistributions() map[deb.Distribution][]deb.Architecture
 
 type IncludeResult struct {
 	SendTo        *mail.Address
+	ShouldReport  bool
 	FilesToRemove []string
 }
 
@@ -68,6 +69,7 @@ func (x *Interactor) ProcessChangesFile(filepath string) (*IncludeResult, error)
 	res := &IncludeResult{
 		SendTo:        nil,
 		FilesToRemove: make([]string, 0, 3),
+		ShouldReport:  false,
 	}
 
 	if strings.HasSuffix(filepath, ".changes") == false {
@@ -83,6 +85,7 @@ func (x *Interactor) ProcessChangesFile(filepath string) (*IncludeResult, error)
 	if authErr != nil {
 		if r != nil {
 			authErr = fmt.Errorf("Unauthorized .changes upload: %s", err)
+			res.ShouldReport = true
 		} else {
 			return res, authErr
 		}
