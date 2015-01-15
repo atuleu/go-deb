@@ -14,7 +14,7 @@ import (
 )
 
 type XdgUserDistConfig struct {
-	supported map[deb.Distribution]map[deb.Architecture]bool
+	supported map[deb.Codename]map[deb.Architecture]bool
 
 	dataPath string
 	lock     lockfile.Lockfile
@@ -22,7 +22,7 @@ type XdgUserDistConfig struct {
 
 func NewXdgUserDistConfig() (*XdgUserDistConfig, error) {
 	res := &XdgUserDistConfig{
-		supported: make(map[deb.Distribution]map[deb.Architecture]bool),
+		supported: make(map[deb.Codename]map[deb.Architecture]bool),
 	}
 	var err error
 	res.dataPath, err = xdg.Config.Ensure("go-deb.builder/dist-config.json")
@@ -90,8 +90,8 @@ func (c *XdgUserDistConfig) save() error {
 	return enc.Encode(c.supported)
 }
 
-func (c *XdgUserDistConfig) Supported() map[deb.Distribution]ArchitectureList {
-	res := make(map[deb.Distribution]ArchitectureList)
+func (c *XdgUserDistConfig) Supported() map[deb.Codename]ArchitectureList {
+	res := make(map[deb.Codename]ArchitectureList)
 	for d, archs := range c.supported {
 		list := make(ArchitectureList, 0, len(archs))
 		for a, _ := range archs {
@@ -103,7 +103,7 @@ func (c *XdgUserDistConfig) Supported() map[deb.Distribution]ArchitectureList {
 	return res
 }
 
-func (c *XdgUserDistConfig) Add(d deb.Distribution, a deb.Architecture) error {
+func (c *XdgUserDistConfig) Add(d deb.Codename, a deb.Architecture) error {
 	oldSupp, ok := c.supported[d]
 	if ok == false {
 		c.supported[d] = make(map[deb.Architecture]bool)
@@ -120,7 +120,7 @@ func (c *XdgUserDistConfig) Add(d deb.Distribution, a deb.Architecture) error {
 	return nil
 }
 
-func (c *XdgUserDistConfig) Remove(d deb.Distribution, a deb.Architecture) error {
+func (c *XdgUserDistConfig) Remove(d deb.Codename, a deb.Architecture) error {
 	oldArchs, ok := c.supported[d]
 	delete(c.supported[d], a)
 	if len(c.supported[d]) == 0 {

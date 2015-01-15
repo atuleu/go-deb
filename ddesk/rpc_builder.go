@@ -90,7 +90,7 @@ func (c *ClientBuilder) BuildPackage(args BuildArguments, output io.Writer) (*Bu
 	return res, err
 }
 
-func (c *ClientBuilder) InitDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
+func (c *ClientBuilder) InitDistribution(d deb.Codename, a deb.Architecture, output io.Writer) error {
 	id, _, errChan, err := c.initSynchronization(output)
 	if err != nil {
 		return err
@@ -108,11 +108,11 @@ func (c *ClientBuilder) InitDistribution(d deb.Distribution, a deb.Architecture,
 	return err
 }
 
-func (c *ClientBuilder) RemoveDistribution(d deb.Distribution, a deb.Architecture) error {
+func (c *ClientBuilder) RemoveDistribution(d deb.Codename, a deb.Architecture) error {
 	return fmt.Errorf("Client builder are not allowed to remove distribution/architecture")
 }
 
-func (c *ClientBuilder) UpdateDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
+func (c *ClientBuilder) UpdateDistribution(d deb.Codename, a deb.Architecture, output io.Writer) error {
 	id, _, errChan, err := c.initSynchronization(output)
 	if err != nil {
 		return err
@@ -125,7 +125,7 @@ func (c *ClientBuilder) UpdateDistribution(d deb.Distribution, a deb.Architectur
 	return err
 }
 
-func (c *ClientBuilder) AvailableDistributions() []deb.Distribution {
+func (c *ClientBuilder) AvailableDistributions() []deb.Codename {
 	res := DistributionList{}
 	if err := c.conn.Call("RpcBuilder.AvailableDistributions", NoValue{}, &res); err != nil {
 		panic(err)
@@ -133,7 +133,7 @@ func (c *ClientBuilder) AvailableDistributions() []deb.Distribution {
 	return res.Dists
 }
 
-func (c *ClientBuilder) AvailableArchitectures(d deb.Distribution) ArchitectureList {
+func (c *ClientBuilder) AvailableArchitectures(d deb.Codename) ArchitectureList {
 	res := ArchitectureListReturn{}
 	if err := c.conn.Call("RpcBuilder.AvailableArchitectures", d, &res); err != nil {
 		panic(err)
@@ -297,7 +297,7 @@ func (b *RpcBuilder) Build(args RpcBuildArguments, res *BuildResult) error {
 
 type CreateArgs struct {
 	ID   SyncOutputID
-	Dist deb.Distribution
+	Dist deb.Codename
 	Arch deb.Architecture
 }
 
@@ -323,7 +323,7 @@ func (b *RpcBuilder) Create(args CreateArgs, res *NoValue) error {
 
 type UpdateArgs struct {
 	ID   SyncOutputID
-	Dist deb.Distribution
+	Dist deb.Codename
 	Arch deb.Architecture
 }
 
@@ -346,7 +346,7 @@ func (b *RpcBuilder) Update(args UpdateArgs, res *NoValue) error {
 }
 
 type DistributionList struct {
-	Dists []deb.Distribution
+	Dists []deb.Codename
 }
 
 func (b *RpcBuilder) AvailableDistributions(arg NoValue, res *DistributionList) error {
@@ -358,7 +358,7 @@ type ArchitectureListReturn struct {
 	Archs ArchitectureList
 }
 
-func (b *RpcBuilder) AvailableArchitectures(d deb.Distribution, res *ArchitectureListReturn) error {
+func (b *RpcBuilder) AvailableArchitectures(d deb.Codename, res *ArchitectureListReturn) error {
 	res.Archs = b.actualBuilder.AvailableArchitectures(d)
 	return nil
 }

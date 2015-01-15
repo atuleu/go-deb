@@ -16,7 +16,7 @@ import (
 )
 
 type Reprepro struct {
-	dists map[deb.Distribution][]deb.Architecture
+	dists map[deb.Codename][]deb.Architecture
 	lock  lockfile.Lockfile
 
 	basepath string
@@ -46,10 +46,10 @@ func (r *Reprepro) loadDistributions() error {
 		return err
 	}
 
-	r.dists = make(map[deb.Distribution][]deb.Architecture)
+	r.dists = make(map[deb.Codename][]deb.Architecture)
 
 	l := deb.NewControlFileLexer(f)
-	newDist := deb.Distribution("")
+	newDist := deb.Codename("")
 	newArch := []deb.Architecture{}
 
 	for {
@@ -79,7 +79,7 @@ func (r *Reprepro) loadDistributions() error {
 			if strings.Contains(field.Data[0], " ") == true {
 				return fmt.Errorf("Invalid Codename: field %s", field.Data[0])
 			}
-			newDist = deb.Distribution(field.Data[0])
+			newDist = deb.Codename(field.Data[0])
 		}
 
 		if field.Name == "Architectures" {
@@ -209,12 +209,12 @@ func (r *Reprepro) ArchiveChanges(c *deb.ChangesFile, dir string) error {
 	return nil
 }
 
-func (r *Reprepro) AddDistribution(d deb.Distribution, a deb.Architecture) error {
+func (r *Reprepro) AddDistribution(d deb.Codename, a deb.Architecture) error {
 	r.dists[d] = append(r.dists[d], a)
 	return r.writeDistributions()
 }
 
-func (r *Reprepro) RemoveDistribution(d deb.Distribution, a deb.Architecture) error {
+func (r *Reprepro) RemoveDistribution(d deb.Codename, a deb.Architecture) error {
 	archs, ok := r.dists[d]
 	if ok == false {
 		return fmt.Errorf("Distribution %s is not supported", d)
@@ -242,7 +242,7 @@ func (r *Reprepro) RemoveDistribution(d deb.Distribution, a deb.Architecture) er
 	return r.writeDistributions()
 }
 
-func (r *Reprepro) unsafeListPackages(d deb.Distribution) (map[deb.BinaryPackageRef]bool, error) {
+func (r *Reprepro) unsafeListPackages(d deb.Codename) (map[deb.BinaryPackageRef]bool, error) {
 	if _, ok := r.dists[d]; ok == false {
 		return nil, fmt.Errorf("Distribution %s is not supported", d)
 	}
@@ -292,7 +292,7 @@ func (r *Reprepro) unsafeListPackages(d deb.Distribution) (map[deb.BinaryPackage
 	return res, nil
 }
 
-func (r *Reprepro) ListPackage(d deb.Distribution, rx *regexp.Regexp) []deb.BinaryPackageRef {
+func (r *Reprepro) ListPackage(d deb.Codename, rx *regexp.Regexp) []deb.BinaryPackageRef {
 	if err := r.tryLock(); err != nil {
 		return nil
 	}
@@ -318,7 +318,7 @@ func (r *Reprepro) unsafeRemovePackage(dist, pack string) error {
 	return nil
 }
 
-func (r *Reprepro) RemovePackage(d deb.Distribution, p deb.BinaryPackageRef) error {
+func (r *Reprepro) RemovePackage(d deb.Codename, p deb.BinaryPackageRef) error {
 	if _, ok := r.dists[d]; ok == false {
 		return fmt.Errorf("Distributions %s is not supported", d)
 	}
@@ -331,7 +331,7 @@ func (r *Reprepro) RemovePackage(d deb.Distribution, p deb.BinaryPackageRef) err
 }
 
 func (r *Reprepro) Access() AptRepositoryAccess {
-	dists := make([]deb.Distribution, 0, len(r.dists))
+	dists := make([]deb.Codename, 0, len(r.dists))
 	for d, _ := range r.dists {
 		dists = append(dists, d)
 	}

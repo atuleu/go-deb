@@ -250,7 +250,7 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 }
 
 // returns an equivalent of .pbuilderrc run
-func (b *Cowbuilder) cowbuilderCommand(d deb.Distribution, a deb.Architecture, deps []AptRepositoryAccess, command string, args ...string) (*exec.Cmd, error) {
+func (b *Cowbuilder) cowbuilderCommand(d deb.Codename, a deb.Architecture, deps []AptRepositoryAccess, command string, args ...string) (*exec.Cmd, error) {
 
 	isUbuntu, err := b.isSupportedUbuntu(d)
 	if err != nil {
@@ -331,15 +331,15 @@ func (b *Cowbuilder) setBuildResult(cmd *exec.Cmd, path string) {
 // Returns true if it is a supported ubuntu distribution, or false if
 // it is a supported Debian one.
 // if not supported returns an error
-func (b *Cowbuilder) isSupportedUbuntu(d deb.Distribution) (bool, error) {
+func (b *Cowbuilder) isSupportedUbuntu(d deb.Codename) (bool, error) {
 	for _, dd := range b.ubuntuDists {
-		if d == deb.Distribution(dd) {
+		if d == deb.Codename(dd) {
 			return true, nil
 		}
 	}
 
 	for _, dd := range b.debianDists {
-		if d == deb.Distribution(dd) {
+		if d == deb.Codename(dd) {
 			return false, nil
 		}
 	}
@@ -347,7 +347,7 @@ func (b *Cowbuilder) isSupportedUbuntu(d deb.Distribution) (bool, error) {
 	return false, fmt.Errorf("%s is not supported by this builder", d)
 }
 
-func (b *Cowbuilder) InitDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
+func (b *Cowbuilder) InitDistribution(d deb.Codename, a deb.Architecture, output io.Writer) error {
 	b.acquire()
 	defer b.release()
 
@@ -379,7 +379,7 @@ func (b *Cowbuilder) InitDistribution(d deb.Distribution, a deb.Architecture, ou
 	return cmd.Run()
 }
 
-func (b *Cowbuilder) RemoveDistribution(d deb.Distribution, a deb.Architecture) error {
+func (b *Cowbuilder) RemoveDistribution(d deb.Codename, a deb.Architecture) error {
 	b.acquire()
 	defer b.release()
 
@@ -391,7 +391,7 @@ func (b *Cowbuilder) RemoveDistribution(d deb.Distribution, a deb.Architecture) 
 	return os.RemoveAll(imagePath)
 }
 
-func (b *Cowbuilder) UpdateDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
+func (b *Cowbuilder) UpdateDistribution(d deb.Codename, a deb.Architecture, output io.Writer) error {
 	b.acquire()
 	defer b.release()
 
@@ -415,18 +415,18 @@ func (b *Cowbuilder) UpdateDistribution(d deb.Distribution, a deb.Architecture, 
 	return cmd.Run()
 }
 
-func (b *Cowbuilder) AvailableDistributions() []deb.Distribution {
+func (b *Cowbuilder) AvailableDistributions() []deb.Codename {
 	b.acquire()
 	defer b.release()
 
-	res := []deb.Distribution{}
+	res := []deb.Codename{}
 	for d, _ := range b.getAllImages() {
 		res = append(res, d)
 	}
 	return res
 }
 
-func (b *Cowbuilder) AvailableArchitectures(d deb.Distribution) ArchitectureList {
+func (b *Cowbuilder) AvailableArchitectures(d deb.Codename) ArchitectureList {
 	b.acquire()
 	defer b.release()
 
@@ -446,18 +446,18 @@ func (b *Cowbuilder) release() {
 	b.semaphore <- true
 }
 
-func (b *Cowbuilder) imagePath(d deb.Distribution, a deb.Architecture) string {
+func (b *Cowbuilder) imagePath(d deb.Codename, a deb.Architecture) string {
 	return path.Join(b.imagepath, fmt.Sprintf("%s-%s", d, a))
 }
 
-func (b *Cowbuilder) getAllImages() map[deb.Distribution]ArchitectureList {
+func (b *Cowbuilder) getAllImages() map[deb.Codename]ArchitectureList {
 
 	allFiles, err := ioutil.ReadDir(b.imagepath)
 	if err != nil {
 		return nil
 	}
 
-	res := map[deb.Distribution]ArchitectureList{}
+	res := map[deb.Codename]ArchitectureList{}
 	rx := regexp.MustCompile(`([a-z]+)-([a-z0-9]+)`)
 	for _, f := range allFiles {
 		if f.IsDir() == false {
@@ -479,7 +479,7 @@ func (b *Cowbuilder) getAllImages() map[deb.Distribution]ArchitectureList {
 			continue
 		}
 
-		dist := deb.Distribution(matches[1])
+		dist := deb.Codename(matches[1])
 		arch := deb.Architecture(matches[2])
 		res[dist] = append(res[dist], arch)
 
@@ -487,7 +487,7 @@ func (b *Cowbuilder) getAllImages() map[deb.Distribution]ArchitectureList {
 	return res
 }
 
-func (b *Cowbuilder) supportedDistributionPath(d deb.Distribution, a deb.Architecture) (string, error) {
+func (b *Cowbuilder) supportedDistributionPath(d deb.Codename, a deb.Architecture) (string, error) {
 	res := b.imagePath(d, a)
 	baseCowPath := path.Join(res, "base.cow")
 	baseCow, err := os.Stat(baseCowPath)
@@ -512,7 +512,7 @@ func (b *Cowbuilder) getSupportedArchitectures() {
 	}
 }
 
-func (b *Cowbuilder) setHooksForRepoDeps(targetDist deb.Distribution, deps []AptRepositoryAccess) ([]string, error) {
+func (b *Cowbuilder) setHooksForRepoDeps(targetDist deb.Codename, deps []AptRepositoryAccess) ([]string, error) {
 	var content bytes.Buffer
 	fmt.Fprintf(&content, `#!/bin/bash
 listfile=/etc/apt/sources.list.d/deps.list

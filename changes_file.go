@@ -25,7 +25,7 @@ type ChangesFile struct {
 	Date       time.Time
 	Arch       []Architecture `field:"Architectures"`
 	Binary     []string
-	Dist       Distribution `field:"Distribution"`
+	Dist       Codename `field:"Distribution"`
 	Maintainer *mail.Address
 
 	Description string

@@ -28,7 +28,7 @@ type BuildResult struct {
 
 type BuildArguments struct {
 	SourcePackage deb.SourceControlFile
-	Dist          deb.Distribution
+	Dist          deb.Codename
 	Archs         []deb.Architecture
 	Deps          []AptRepositoryAccess
 	Dest          string
@@ -37,9 +37,9 @@ type BuildArguments struct {
 // Interface of a module that can build packages
 type DebianBuilder interface {
 	BuildPackage(b BuildArguments, output io.Writer) (*BuildResult, error)
-	InitDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error
-	RemoveDistribution(d deb.Distribution, a deb.Architecture) error
-	UpdateDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error
-	AvailableDistributions() []deb.Distribution
-	AvailableArchitectures(d deb.Distribution) ArchitectureList
+	InitDistribution(d deb.Codename, a deb.Architecture, output io.Writer) error
+	RemoveDistribution(d deb.Codename, a deb.Architecture) error
+	UpdateDistribution(d deb.Codename, a deb.Architecture, output io.Writer) error
+	AvailableDistributions() []deb.Codename
+	AvailableArchitectures(d deb.Codename) ArchitectureList
 }

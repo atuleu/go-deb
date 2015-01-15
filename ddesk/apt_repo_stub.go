@@ -18,18 +18,18 @@ func (l *AptRepositoryStub) ArchiveChanges(c *deb.ChangesFile, dir string) error
 	l.ArchiveCalled = true
 	return nil
 }
-func (l *AptRepositoryStub) AddDistribution(deb.Distribution, deb.Architecture) error {
+func (l *AptRepositoryStub) AddDistribution(deb.Codename, deb.Architecture) error {
 	return nil
 }
 
-func (l *AptRepositoryStub) RemoveDistribution(deb.Distribution, deb.Architecture) error {
+func (l *AptRepositoryStub) RemoveDistribution(deb.Codename, deb.Architecture) error {
 	return nil
 }
-func (l *AptRepositoryStub) ListPackage(deb.Distribution, *regexp.Regexp) []deb.BinaryPackageRef {
+func (l *AptRepositoryStub) ListPackage(deb.Codename, *regexp.Regexp) []deb.BinaryPackageRef {
 	return nil
 
 }
-func (l *AptRepositoryStub) RemovePackage(deb.Distribution, deb.BinaryPackageRef) error {
+func (l *AptRepositoryStub) RemovePackage(deb.Codename, deb.BinaryPackageRef) error {
 	return nil
 }
 

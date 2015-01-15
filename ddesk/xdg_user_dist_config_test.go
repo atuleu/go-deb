@@ -30,7 +30,7 @@ func testDistConfig(u UserDistSupportConfig, c *C) {
 
 	supported := u.Supported()
 	c.Assert(supported, NotNil)
-	archs := supported[deb.Distribution("unstable")]
+	archs := supported[deb.Codename("unstable")]
 
 	c.Check(len(archs), Equals, 2)
 	if len(archs) >= 2 {
@@ -48,7 +48,7 @@ func (s *UserDistSupportConfigSuite) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 
 	s.stub = &UserDistSupportConfigStub{
-		supported: make(map[deb.Distribution]map[deb.Architecture]bool),
+		supported: make(map[deb.Codename]map[deb.Architecture]bool),
 	}
 
 }

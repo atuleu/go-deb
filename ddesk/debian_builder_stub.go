@@ -11,7 +11,7 @@ type DebianBuilderStub struct {
 	Err         error
 	Res         *BuildResult
 	BuildCalled bool
-	DistAndArch map[deb.Distribution][]deb.Architecture
+	DistAndArch map[deb.Codename][]deb.Architecture
 }
 
 func (b *DebianBuilderStub) BuildPackage(args BuildArguments, out io.Writer) (*BuildResult, error) {
@@ -22,7 +22,7 @@ func (b *DebianBuilderStub) BuildPackage(args BuildArguments, out io.Writer) (*B
 	return b.Res, b.Err
 }
 
-func (b *DebianBuilderStub) InitDistribution(d deb.Distribution, a deb.Architecture, out io.Writer) error {
+func (b *DebianBuilderStub) InitDistribution(d deb.Codename, a deb.Architecture, out io.Writer) error {
 	if b.Err != nil {
 		return b.Err
 	}
@@ -33,7 +33,7 @@ func (b *DebianBuilderStub) InitDistribution(d deb.Distribution, a deb.Architect
 	return nil
 }
 
-func (b *DebianBuilderStub) RemoveDistribution(d deb.Distribution, a deb.Architecture) error {
+func (b *DebianBuilderStub) RemoveDistribution(d deb.Codename, a deb.Architecture) error {
 	if b.Err != nil {
 		return b.Err
 	}
@@ -61,7 +61,7 @@ func (b *DebianBuilderStub) RemoveDistribution(d deb.Distribution, a deb.Archite
 	return nil
 }
 
-func (b *DebianBuilderStub) UpdateDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
+func (b *DebianBuilderStub) UpdateDistribution(d deb.Codename, a deb.Architecture, output io.Writer) error {
 	archs, ok := b.DistAndArch[d]
 	if output != nil {
 		fmt.Fprintf(output, "Called UpdateDistribution\n")
@@ -87,8 +87,8 @@ func (b *DebianBuilderStub) UpdateDistribution(d deb.Distribution, a deb.Archite
 
 }
 
-func (b *DebianBuilderStub) AvailableDistributions() []deb.Distribution {
-	res := []deb.Distribution{}
+func (b *DebianBuilderStub) AvailableDistributions() []deb.Codename {
+	res := []deb.Codename{}
 
 	for d, _ := range b.DistAndArch {
 		res = append(res, d)
@@ -97,7 +97,7 @@ func (b *DebianBuilderStub) AvailableDistributions() []deb.Distribution {
 	return res
 }
 
-func (b *DebianBuilderStub) AvailableArchitectures(d deb.Distribution) ArchitectureList {
+func (b *DebianBuilderStub) AvailableArchitectures(d deb.Codename) ArchitectureList {
 	return b.DistAndArch[d]
 }
 

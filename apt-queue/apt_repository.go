@@ -19,8 +19,8 @@ type RepoDist struct {
 }
 
 type AptRepo interface {
-	Add(deb.Distribution, []deb.Architecture, []deb.Component) error
-	Remove(deb.Distribution, []deb.Architecture, []deb.Component) error
+	Add(deb.Codename, []deb.Architecture, []deb.Component) error
+	Remove(deb.Codename, []deb.Architecture, []deb.Component) error
 	List() map[string]RepoDist
 	Include(*deb.ChangesFile, []deb.Component) error
 }
@@ -212,10 +212,10 @@ func (r *RepreproRepository) save() error {
 	return nil
 }
 
-func (r *RepreproRepository) Add(deb.Distribution, []deb.Architecture, []deb.Component) error {
+func (r *RepreproRepository) Add(deb.Codename, []deb.Architecture, []deb.Component) error {
 	return deb.NotYetImplemented()
 }
-func (r *RepreproRepository) Remove(deb.Distribution, []deb.Architecture, []deb.Component) error {
+func (r *RepreproRepository) Remove(deb.Codename, []deb.Architecture, []deb.Component) error {
 	return deb.NotYetImplemented()
 }
 func (r *RepreproRepository) List() map[string]RepoDist {

@@ -60,7 +60,7 @@ func (x *InitDistributionCommand) Execute(args []string) error {
 		return err
 	}
 
-	res, err := i.AddDistributionSupport(deb.Distribution(x.Dist),
+	res, err := i.AddDistributionSupport(deb.Codename(x.Dist),
 		deb.Architecture(x.Arch),
 		os.Stdout)
 	if err != nil {
@@ -87,7 +87,7 @@ func (x *RemoveDistributionCommand) Execute(args []string) error {
 		return err
 	}
 
-	err = i.RemoveDistributionSupport(deb.Distribution(x.Dist),
+	err = i.RemoveDistributionSupport(deb.Codename(x.Dist),
 		deb.Architecture(x.Arch),
 		x.RemoveCache)
 	if err != nil {
@@ -148,7 +148,7 @@ func (x *UpdateDistCommand) Execute(args []string) error {
 		return err
 	}
 
-	return i.builder.UpdateDistribution(deb.Distribution(x.Dist),
+	return i.builder.UpdateDistribution(deb.Codename(x.Dist),
 		deb.Architecture(x.Arch),
 		os.Stdout)
 }

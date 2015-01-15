@@ -51,7 +51,7 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 	dscFile.Close()
 
 	s.builder = &DebianBuilderStub{
-		DistAndArch: map[deb.Distribution][]deb.Architecture{},
+		DistAndArch: map[deb.Codename][]deb.Architecture{},
 		Res: &BuildResult{
 			Changes: &deb.ChangesFile{
 				Ref: deb.ChangesFileRef{
@@ -75,7 +75,7 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 	s.localApt.AddDistribution("unstable", deb.Amd64)
 	s.history = &HistoryStub{}
 	s.distConfig = &UserDistSupportConfigStub{
-		supported: map[deb.Distribution]map[deb.Architecture]bool{
+		supported: map[deb.Codename]map[deb.Architecture]bool{
 			"unstable": map[deb.Architecture]bool{deb.Amd64: true},
 		},
 	}

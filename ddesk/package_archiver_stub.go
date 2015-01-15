@@ -11,7 +11,7 @@ type PackageArchiverStub struct {
 	ArchiveResultCalled bool
 	SourceErr           error
 	BuildErr            error
-	ForceTargetDist     deb.Distribution
+	ForceTargetDist     deb.Codename
 	Sources             map[deb.SourcePackageRef]*ArchivedSource
 	Results             map[deb.SourcePackageRef]*BuildResult
 }

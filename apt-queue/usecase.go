@@ -44,15 +44,15 @@ func (x *Interactor) ListAutorizedKeys() []KeyDescription {
 
 }
 
-func (x *Interactor) AddDistribution(d deb.Distribution, a deb.Architecture) error {
+func (x *Interactor) AddDistribution(d deb.Codename, a deb.Architecture) error {
 	return deb.NotYetImplemented()
 }
 
-func (x *Interactor) RemoveDistribution(d deb.Distribution, a deb.Architecture) error {
+func (x *Interactor) RemoveDistribution(d deb.Codename, a deb.Architecture) error {
 	return deb.NotYetImplemented()
 }
 
-func (x *Interactor) ListDistributions() map[deb.Distribution][]deb.Architecture {
+func (x *Interactor) ListDistributions() map[deb.Codename][]deb.Architecture {
 	return nil
 }
 

@@ -9,19 +9,42 @@ import (
 	"regexp"
 )
 
-type Distribution string
+type Vendor string
+
+type Codename string
 
 type Component string
 
 type Architecture string
 
 const (
-	Any    Architecture = "any"
-	All    Architecture = "all"
-	Amd64  Architecture = "amd64"
-	I386   Architecture = "i386"
-	Source Architecture = "source"
-	Armel  Architecture = "armel"
+	Any      Architecture = "any"
+	All      Architecture = "all"
+	Amd64    Architecture = "amd64"
+	I386     Architecture = "i386"
+	Source   Architecture = "source"
+	Armel    Architecture = "armel"
+	Ubuntu   Vendor       = "ubuntu"
+	Debian   Vendor       = "debian"
+	Lucid    Codename     = "lucid"
+	Maverick Codename     = "maverick"
+	Natty    Codename     = "natty"
+	Oneiric  Codename     = "oneiric"
+	Precise  Codename     = "precise"
+	Quantal  Codename     = "quantal"
+	Raring   Codename     = "raring"
+	Trusty   Codename     = "trusty"
+	Utopic   Codename     = "utopic"
+	Vivid    Codename     = "vivid"
+	Sid      Codename     = "sid"
+	Squeeze  Codename     = "squeeze"
+	Wheezy   Codename     = "wheezy"
+	Jessie   Codename     = "jessie"
+	Stretch  Codename     = "stretch"
+	Buster   Codename     = "buster"
+	Unstable Codename     = "unstable"
+	Testing  Codename     = "testing"
+	Stable   Codename     = "stable"
 )
 
 var ArchitectureList = map[Architecture]bool{
@@ -31,6 +54,28 @@ var ArchitectureList = map[Architecture]bool{
 	I386:   true,
 	Source: true,
 	Armel:  true,
+}
+
+var CodenameList = map[Codename]Vendor{
+	Sid:      Debian,
+	Squeeze:  Debian,
+	Wheezy:   Debian,
+	Jessie:   Debian,
+	Stretch:  Debian,
+	Buster:   Debian,
+	Unstable: Debian,
+	Testing:  Debian,
+	Stable:   Debian,
+	Lucid:    Ubuntu,
+	Maverick: Ubuntu,
+	Natty:    Ubuntu,
+	Oneiric:  Ubuntu,
+	Precise:  Ubuntu,
+	Quantal:  Ubuntu,
+	Raring:   Ubuntu,
+	Trusty:   Ubuntu,
+	Utopic:   Ubuntu,
+	Vivid:    Ubuntu,
 }
 
 type SourcePackageRef struct {

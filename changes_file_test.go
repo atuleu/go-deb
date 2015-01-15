@@ -133,7 +133,7 @@ Files:
 	c.Check(ch.Binary, DeepEquals, []string{"aha"})
 	c.Check(ch.Arch, DeepEquals, []Architecture{Source, Amd64})
 	c.Check(ch.Ref.Identifier.Ver, DeepEquals, Version{0, "0.4.7.2", "1"})
-	c.Check(ch.Dist, Equals, Distribution("unstable"))
+	c.Check(ch.Dist, Equals, Unstable)
 	c.Check(ch.Maintainer, DeepEquals, &mail.Address{Name: "Axel Beckert", Address: "abe@debian.org"})
 	c.Check(ch.Description, Equals, `aha        - ANSI color to HTML converter`)
 	c.Check(ch.Changes, Equals, "aha (0.4.7.2-1) unstable; urgency=medium\n.\n* New upstream release\n+ Drop sole patch. Merged upstream.")

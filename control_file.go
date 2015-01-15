@@ -325,7 +325,7 @@ func parseDistribution(f ControlField, v interface{}) error {
 		return fmt.Errorf("does not contains a single distribution")
 	}
 
-	return setField(v, "Distribution", Distribution(d))
+	return setField(v, "Distribution", Codename(d))
 }
 
 func parseMaintainer(f ControlField, v interface{}) error {

@@ -9,10 +9,10 @@ import (
 )
 
 type UserDistSupportConfigStub struct {
-	supported map[deb.Distribution]map[deb.Architecture]bool
+	supported map[deb.Codename]map[deb.Architecture]bool
 }
 
-func (c *UserDistSupportConfigStub) Add(d deb.Distribution, a deb.Architecture) error {
+func (c *UserDistSupportConfigStub) Add(d deb.Codename, a deb.Architecture) error {
 	_, ok := c.supported[d]
 	if ok == false {
 		c.supported[d] = make(map[deb.Architecture]bool)
@@ -21,7 +21,7 @@ func (c *UserDistSupportConfigStub) Add(d deb.Distribution, a deb.Architecture) 
 	return nil
 }
 
-func (c *UserDistSupportConfigStub) Remove(d deb.Distribution, a deb.Architecture) error {
+func (c *UserDistSupportConfigStub) Remove(d deb.Codename, a deb.Architecture) error {
 	delete(c.supported[d], a)
 	if len(c.supported[d]) == 0 {
 		delete(c.supported, d)
@@ -29,8 +29,8 @@ func (c *UserDistSupportConfigStub) Remove(d deb.Distribution, a deb.Architectur
 	return nil
 }
 
-func (c *UserDistSupportConfigStub) Supported() map[deb.Distribution]ArchitectureList {
-	res := make(map[deb.Distribution]ArchitectureList)
+func (c *UserDistSupportConfigStub) Supported() map[deb.Codename]ArchitectureList {
+	res := make(map[deb.Codename]ArchitectureList)
 	for d, archs := range c.supported {
 		list := make(ArchitectureList, 0, len(archs))
 		for a, _ := range archs {
@@ -53,10 +53,10 @@ var _ = Suite(&DistManagementUseCaseSuite{})
 
 func (s *DistManagementUseCaseSuite) SetUpSuite(c *C) {
 	s.builder = &DebianBuilderStub{
-		DistAndArch: make(map[deb.Distribution][]deb.Architecture),
+		DistAndArch: make(map[deb.Codename][]deb.Architecture),
 	}
 	s.distConfig = &UserDistSupportConfigStub{
-		supported: make(map[deb.Distribution]map[deb.Architecture]bool),
+		supported: make(map[deb.Codename]map[deb.Architecture]bool),
 	}
 	s.repo = &AptRepositoryStub{}
 
@@ -89,7 +89,7 @@ func (s *DistManagementUseCaseSuite) TestAddAndRemoveDistribution(c *C) {
 	data, err := s.x.GetSupportedDistribution()
 	c.Assert(err, IsNil)
 	c.Assert(len(data), Equals, 1)
-	archs := data[deb.Distribution("unstable")]
+	archs := data[deb.Codename("unstable")]
 	c.Assert(len(archs), Equals, 2)
 	c.Check(archs[deb.Amd64], Equals, true)
 	c.Check(archs[deb.I386], Equals, true)
@@ -105,7 +105,7 @@ func (s *DistManagementUseCaseSuite) TestAddAndRemoveDistribution(c *C) {
 	data, err = s.x.GetSupportedDistribution()
 	c.Assert(err, IsNil)
 	c.Assert(len(data), Equals, 1)
-	archs = data[deb.Distribution("unstable")]
+	archs = data[deb.Codename("unstable")]
 	c.Check(len(archs), Equals, 1)
 	v, ok := archs[deb.Amd64]
 	c.Check(v, Equals, false)

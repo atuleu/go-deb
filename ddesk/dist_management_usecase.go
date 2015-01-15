@@ -25,9 +25,9 @@ func (l ArchitectureList) Swap(i, j int) {
 }
 
 type UserDistSupportConfig interface {
-	Add(d deb.Distribution, a deb.Architecture) error
-	Supported() map[deb.Distribution]ArchitectureList
-	Remove(d deb.Distribution, a deb.Architecture) error
+	Add(d deb.Codename, a deb.Architecture) error
+	Supported() map[deb.Codename]ArchitectureList
+	Remove(d deb.Codename, a deb.Architecture) error
 }
 
 type DistributionInitResult struct {
@@ -35,7 +35,7 @@ type DistributionInitResult struct {
 	CreateLog Log
 }
 
-func (x *Interactor) AddDistributionSupport(d deb.Distribution, a deb.Architecture, output io.Writer) (*DistributionInitResult, error) {
+func (x *Interactor) AddDistributionSupport(d deb.Codename, a deb.Architecture, output io.Writer) (*DistributionInitResult, error) {
 	supported := false
 	for _, aa := range x.builder.AvailableArchitectures(d) {
 		if aa == a {
@@ -83,7 +83,7 @@ func (x *Interactor) AddDistributionSupport(d deb.Distribution, a deb.Architectu
 	return res, nil
 }
 
-func (x *Interactor) RemoveDistributionSupport(d deb.Distribution, a deb.Architecture, removeBuilder bool) error {
+func (x *Interactor) RemoveDistributionSupport(d deb.Codename, a deb.Architecture, removeBuilder bool) error {
 	err := x.userDistConfig.Remove(d, a)
 	if err != nil {
 		return err
@@ -101,7 +101,7 @@ func (x *Interactor) RemoveDistributionSupport(d deb.Distribution, a deb.Archite
 	return x.builder.RemoveDistribution(d, a)
 }
 
-type DistributionSupportReport map[deb.Distribution]map[deb.Architecture]bool
+type DistributionSupportReport map[deb.Codename]map[deb.Architecture]bool
 
 func (x *Interactor) GetSupportedDistribution() (DistributionSupportReport, error) {
 	res := make(DistributionSupportReport)
@@ -129,7 +129,7 @@ func (x *Interactor) GetSupportedDistribution() (DistributionSupportReport, erro
 	return res, nil
 }
 
-func (x *Interactor) UpdateDistribution(d deb.Distribution, a deb.Architecture, output io.Writer) error {
+func (x *Interactor) UpdateDistribution(d deb.Codename, a deb.Architecture, output io.Writer) error {
 	supported := false
 	for _, aa := range x.builder.AvailableArchitectures(d) {
 		if aa == a {

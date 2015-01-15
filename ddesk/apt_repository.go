@@ -9,7 +9,7 @@ import (
 )
 
 type AptRepositoryAccess struct {
-	Dists      []deb.Distribution
+	Dists      []deb.Codename
 	Components []deb.Component
 	Address    string
 	SigningKey *packet.PublicKey
@@ -17,9 +17,9 @@ type AptRepositoryAccess struct {
 
 type AptRepository interface {
 	ArchiveChanges(c *deb.ChangesFile, dir string) error
-	AddDistribution(deb.Distribution, deb.Architecture) error
-	RemoveDistribution(deb.Distribution, deb.Architecture) error
-	ListPackage(deb.Distribution, *regexp.Regexp) []deb.BinaryPackageRef
-	RemovePackage(deb.Distribution, deb.BinaryPackageRef) error
+	AddDistribution(deb.Codename, deb.Architecture) error
+	RemoveDistribution(deb.Codename, deb.Architecture) error
+	ListPackage(deb.Codename, *regexp.Regexp) []deb.BinaryPackageRef
+	RemovePackage(deb.Codename, deb.BinaryPackageRef) error
 	Access() AptRepositoryAccess
 }

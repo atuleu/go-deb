@@ -27,8 +27,8 @@ func (s *RpcBuilderSuite) SetUpSuite(c *C) {
 	c.Assert(err, IsNil)
 	s.sock = path.Join(s.tmpDir, "rpc.sock")
 	s.b = &DebianBuilderStub{
-		DistAndArch: map[deb.Distribution][]deb.Architecture{
-			deb.Distribution("unstable"): []deb.Architecture{deb.Amd64},
+		DistAndArch: map[deb.Codename][]deb.Architecture{
+			deb.Codename("unstable"): []deb.Architecture{deb.Amd64},
 		},
 	}
 
