@@ -103,10 +103,5 @@ func (x *Interactor) ProcessChangesFile(filepath string) (*IncludeResult, error)
 		return res, authErr
 	}
 
-	_, ok := x.repo.List()[string(changes.Dist)]
-	if ok == false {
-		return res, fmt.Errorf("Unsupported distribution %s", changes.Dist)
-	}
-
 	return res, deb.NotYetImplemented()
 }
