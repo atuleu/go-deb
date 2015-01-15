@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"time"
 )
 
 type ListenCommand struct {
@@ -21,12 +20,12 @@ type ListenCommand struct {
 }
 
 func (x *ListenCommand) handleChanges(pathname string) error {
-	x, err := NewInteractor(options)
+	i, err := NewInteractor(options)
 	if err != nil {
 		return err
 	}
 
-	res, err := x.ProcessChangesFile(pathname)
+	res, err := i.ProcessChangesFile(pathname)
 
 	if err != nil {
 		//TODO: send a mail to use that it is sucessful
@@ -44,6 +43,7 @@ func (x *ListenCommand) handleChanges(pathname string) error {
 		//TODO: send an email only to maintainer
 	}
 
+	return nil
 }
 
 func (x *ListenCommand) Execute(args []string) error {
@@ -62,7 +62,6 @@ func (x *ListenCommand) Execute(args []string) error {
 	}
 	log.Printf("Watching event in %s", x.Dir)
 
-	var nextDate *time.Time = nil
 	for {
 
 		f, err := r.Next()
@@ -70,7 +69,7 @@ func (x *ListenCommand) Execute(args []string) error {
 			return err
 		}
 
-		if strings.HasSuffix(".changes") == false {
+		if strings.HasSuffix(f, ".changes") == false {
 			continue
 		}
 
@@ -79,7 +78,6 @@ func (x *ListenCommand) Execute(args []string) error {
 		}
 	}
 
-	return nil
 }
 
 func init() {

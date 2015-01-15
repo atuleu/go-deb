@@ -8,31 +8,8 @@ import (
 	"path"
 	"strings"
 
-	"golang.org/x/crypto/openpgp"
-
 	deb ".."
 )
-
-type PgpKeyManager interface {
-	Add(r io.Reader) error
-	List() openpgp.EntityList
-	Remove(string) error
-	CheckAndRemoveClearsigned(r io.Reader) (io.Reader, error)
-	PrivateShortKeyID() bool
-	SetupPrivate() error
-}
-
-type AptRepo interface {
-	Add(deb.Distribution, deb.Architecture) error
-	Remove(deb.Distribution, deb.Architecture) error
-	List() map[deb.Distribution][]deb.Architecture
-	Include(changes *deb.ChangesFile) error
-}
-
-type Interactor struct {
-	keyManager PgpKeyManager
-	repo       AptRepo
-}
 
 func (x *Interactor) AuthorizePublicKey(r io.Reader) error {
 	return x.keyManager.Add(r)
@@ -42,20 +19,41 @@ func (x *Interactor) UnauthorizePublicKey(keyShortId string) error {
 	return x.keyManager.Remove(keyShortId)
 }
 
-func (x *Interactor) ListAutorizedKeys() openpgp.EntityList {
-	return x.keyManager.List()
+type KeyDescription struct {
+	Fullname string
+	Id       string
+}
+
+func (x *Interactor) ListAutorizedKeys() []KeyDescription {
+	res := []KeyDescription{}
+	for _, e := range x.keyManager.List() {
+		fullname := ""
+		for k, _ := range e.Identities {
+			fullname = k
+			break
+		}
+
+		res = append(res,
+			KeyDescription{
+				Fullname: fullname,
+				Id:       e.PrimaryKey.KeyIdShortString(),
+			})
+
+	}
+	return res
+
 }
 
 func (x *Interactor) AddDistribution(d deb.Distribution, a deb.Architecture) error {
-	return x.repo.Add(d, a)
+	return deb.NotYetImplemented()
 }
 
 func (x *Interactor) RemoveDistribution(d deb.Distribution, a deb.Architecture) error {
-	return x.repo.Remove(d, a)
+	return deb.NotYetImplemented()
 }
 
 func (x *Interactor) ListDistributions() map[deb.Distribution][]deb.Architecture {
-	return x.repo.List()
+	return nil
 }
 
 type IncludeResult struct {
@@ -105,10 +103,10 @@ func (x *Interactor) ProcessChangesFile(filepath string) (*IncludeResult, error)
 		return res, authErr
 	}
 
-	_, ok := x.repo.List()[changes.Dist]
+	_, ok := x.repo.List()[string(changes.Dist)]
 	if ok == false {
 		return res, fmt.Errorf("Unsupported distribution %s", changes.Dist)
 	}
 
-	return res, x.repo.Include(changes)
+	return res, deb.NotYetImplemented()
 }
