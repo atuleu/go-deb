@@ -37,14 +37,18 @@ type RepreproRepository struct {
 	Components                           []deb.Component
 }
 
-func NewRepreproRepository(dir string, keyId string) (*RepreproRepository, error) {
+func NewRepreproRepository(conf *Config) (*RepreproRepository, error) {
 	res := &RepreproRepository{
-		workingdir: dir,
-		dists:      make(map[deb.Codename]RepoDist),
+		workingdir:  conf.RepositoryPath(),
+		Origin:      conf.Origin,
+		Label:       conf.Label,
+		Description: conf.Description,
+		SignWith:    conf.Label,
+		dists:       make(map[deb.Codename]RepoDist),
 	}
 
-	res.confdir = path.Join(dir, "conf")
-	res.distConfigPath = path.Join(res.workingdir, "conf/distributions")
+	res.confdir = path.Join(res.workingdir, "conf")
+	res.distConfigPath = path.Join(res.confdir, "distributions")
 
 	err := os.MkdirAll(res.confdir, 0755)
 	if err != nil {
@@ -188,6 +192,15 @@ func (r *RepreproRepository) load() error {
 			return fmt.Errorf("Unhandled field %s", field)
 		}
 
+	}
+
+	requiredField := []string{"Origin", "Label", "Description", "SignWith"}
+	selfValue := reflect.ValueOf(r)
+	for _, f := range requiredField {
+		fValue := selfValue.FieldByName(f)
+		if len(fValue.String()) == 0 {
+			return fmt.Errorf("Missing required field %s", f)
+		}
 	}
 
 	return nil

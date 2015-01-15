@@ -19,27 +19,26 @@ type PgpKeyManager interface {
 	Remove(string) error
 	CheckAndRemoveClearsigned(r io.Reader) (io.Reader, error)
 	PrivateShortKeyID() string
-	SetupPrivate(keyType, name, comment, address string, size int) error
+	SetupSignKey(conf *Config) error
 }
 
-type HomeGpgKeyManager struct {
+type GpgKeyManager struct {
 	public_keys openpgp.KeyRing
 	secret_keys openpgp.KeyRing
+	masterKeyId string
 	gnupghome   string
 }
 
-func NewHomeGpgKeyManager() (*HomeGpgKeyManager, error) {
-	res := &HomeGpgKeyManager{}
-	res.gnupghome = os.Getenv("GNUPGHOME")
-	if len(res.gnupghome) == 0 {
-		home := os.Getenv("HOME")
-		if len(home) == 0 {
-			return nil, fmt.Errorf("Could not define GNUPGHOME")
-		}
-		res.gnupghome = path.Join(home, ".gnupg")
+func NewGpgKeyManager(conf *Config) (*GpgKeyManager, error) {
+	res := &GpgKeyManager{
+		gnupghome:   conf.Gnupghome(),
+		masterKeyId: conf.SignWith,
 	}
-
-	err := res.load()
+	err := os.MkdirAll(conf.Gnupghome(), 0700)
+	if err != nil {
+		return nil, err
+	}
+	err = res.load()
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +46,7 @@ func NewHomeGpgKeyManager() (*HomeGpgKeyManager, error) {
 	return res, nil
 }
 
-func (m *HomeGpgKeyManager) load() error {
+func (m *GpgKeyManager) load() error {
 	f, err := os.Open(path.Join(m.gnupghome, "pubring.gpg"))
 	if err != nil && os.IsNotExist(err) == false {
 		return err
@@ -64,6 +63,7 @@ func (m *HomeGpgKeyManager) load() error {
 	if err != nil && os.IsNotExist(err) == false {
 		return err
 	}
+
 	if err == nil {
 		m.secret_keys, err = openpgp.ReadKeyRing(f)
 		if err != nil {
@@ -71,16 +71,41 @@ func (m *HomeGpgKeyManager) load() error {
 		}
 	}
 
-	if m.secret_keys != nil {
-		if len(m.secret_keys.DecryptionKeys()) != 1 {
-			return fmt.Errorf("Should have only one, unsigned secret key")
+	if len(m.masterKeyId) > 0 {
+		var err error = nil
+		if m.secret_keys == nil {
+			err = fmt.Errorf("There is no private keyring")
+		} else {
+			good := false
+			for _, k := range m.secret_keys.DecryptionKeys() {
+				if k.PrivateKey.KeyIdShortString() == m.masterKeyId {
+					good = true
+					break
+				}
+			}
+			if good == false {
+				err = fmt.Errorf("Could not found required private key %s", m.masterKeyId)
+			}
 		}
+
+		if err != nil {
+			return err
+		}
+
 	}
 
 	return nil
 }
 
-func (m *HomeGpgKeyManager) Add(r io.Reader) error {
+func (m *GpgKeyManager) GpgCommand(args ...string) *exec.Cmd {
+	cmd := exec.Command("gpg", args...)
+
+	cmd.Env = []string{fmt.Sprintf("GNUPGHOME=%s", m.gnupghome)}
+
+	return cmd
+}
+
+func (m *GpgKeyManager) Add(r io.Reader) error {
 	var toTest, toCopy bytes.Buffer
 	_, err := io.Copy(io.MultiWriter(&toTest, &toCopy), r)
 	if err != nil {
@@ -99,7 +124,7 @@ func (m *HomeGpgKeyManager) Add(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command("gpg", "--import", f.Name())
+	cmd := m.GpgCommand("--import", f.Name())
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Could not add key: %s\n%s", err, out)
@@ -111,7 +136,7 @@ func (m *HomeGpgKeyManager) Add(r io.Reader) error {
 	return nil
 }
 
-func (m *HomeGpgKeyManager) List() openpgp.EntityList {
+func (m *GpgKeyManager) List() openpgp.EntityList {
 	res := make(openpgp.EntityList, 0)
 
 	encryptioneyId := m.PrivateShortKeyID()
@@ -124,8 +149,8 @@ func (m *HomeGpgKeyManager) List() openpgp.EntityList {
 	return res
 }
 
-func (m *HomeGpgKeyManager) Remove(keyId string) error {
-	cmd := exec.Command("gpg", "--delete-key", keyId)
+func (m *GpgKeyManager) Remove(keyId string) error {
+	cmd := m.GpgCommand("--delete-key", keyId)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Could not remove key %s : %s\n%s", keyId, err, out)
@@ -137,7 +162,7 @@ func (m *HomeGpgKeyManager) Remove(keyId string) error {
 	return nil
 }
 
-func (m *HomeGpgKeyManager) CheckAndRemoveClearsigned(r io.Reader) (io.Reader, error) {
+func (m *GpgKeyManager) CheckAndRemoveClearsigned(r io.Reader) (io.Reader, error) {
 	data, err := ioutil.ReadAll(r)
 	block, rest := clearsign.Decode(data)
 
@@ -153,36 +178,47 @@ func (m *HomeGpgKeyManager) CheckAndRemoveClearsigned(r io.Reader) (io.Reader, e
 	return res, err
 }
 
-func (m *HomeGpgKeyManager) PrivateShortKeyID() string {
-	if len(m.secret_keys.DecryptionKeys()) != 1 {
+func (m *GpgKeyManager) PrivateShortKeyID() string {
+	if len(m.secret_keys.DecryptionKeys()) == 0 {
 		return ""
 	}
-	return m.secret_keys.DecryptionKeys()[0].PublicKey.KeyIdShortString()
+	if len(m.secret_keys.DecryptionKeys()) != 1 {
+		panic("I have several signing key")
+	}
+	return m.secret_keys.DecryptionKeys()[0].PrivateKey.KeyIdShortString()
 }
 
-func (m *HomeGpgKeyManager) SetupPrivate(keyType, name, comment, address string, size int) error {
-	if len(m.PrivateShortKeyID()) != 0 {
-		return fmt.Errorf("I already have a signing key")
+func (m *GpgKeyManager) SetupSignKey(conf *Config) error {
+	if len(conf.SignWith) != 0 {
+		if len(m.PrivateShortKeyID()) != 0 {
+			return fmt.Errorf("Cannot setup signing key, as I have already a signing key %s, and configuration want %s",
+				m.PrivateShortKeyID(),
+				conf.SignWith)
+		}
+	}
+	if len(m.secret_keys.DecryptionKeys()) == 0 {
+
+		cmd := m.GpgCommand("--batch", "--no-tty", "--gen-key")
+
+		var in bytes.Buffer
+		cmd.Stdin = &in
+		fmt.Fprintf(&in, "Key-Type: %s\n", conf.KeyType)
+		fmt.Fprintf(&in, "Key-Length: %d\n", conf.KeySize)
+		fmt.Fprintf(&in, "Name-Real: %s\n", conf.KeyName)
+		fmt.Fprintf(&in, "Name-Comment: %s\n", conf.KeyComment)
+		fmt.Fprintf(&in, "Name-Email: %s\n%%commit\n", conf.KeyEmail)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("Could not generate signing key: %s\n%s", err, out)
+		}
+
+		err = m.load()
+		if err != nil {
+			return err
+		}
+
 	}
 
-	cmd := exec.Command("gpg", "--batch", "--no-tty", "--gen-key")
-
-	var in bytes.Buffer
-	cmd.Stdin = &in
-	fmt.Fprintf(&in, "Key-Type: %s\n", keyType)
-	fmt.Fprintf(&in, "Key-Length: %d\n", size)
-	fmt.Fprintf(&in, "Name-Real: %s\n", name)
-	fmt.Fprintf(&in, "Name-Comment: %s\n", comment)
-	fmt.Fprintf(&in, "Name-Email: %s\n%%commit\n", address)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("Could not generate signing key: %s", out)
-	}
-
-	err = m.load()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	conf.SignWith = m.PrivateShortKeyID()
+	return conf.Save()
 }

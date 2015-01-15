@@ -8,7 +8,11 @@ type Interactor struct {
 func NewInteractor(opt *Options) (*Interactor, error) {
 	res := &Interactor{}
 	var err error
-	res.keyManager, err = NewHomeGpgKeyManager()
+	res.keyManager, err = NewGpgKeyManager(nil)
+	if err != nil {
+		return nil, err
+	}
+	res.repo, err = NewRepreproRepository(nil)
 	if err != nil {
 		return nil, err
 	}
