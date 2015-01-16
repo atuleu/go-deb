@@ -12,8 +12,6 @@ import (
 type ListenCommand struct {
 	Dir string `short:"D" long:"dir" description:"Directory to listen to"`
 
-	DefaultMail string `short:"m" long:"mail" description:"default mail to send failure to"`
-
 	errorMail *mail.Address
 
 	fileReceiver    *NotifyFileReceiver
@@ -61,6 +59,11 @@ func (x *ListenCommand) handleChanges(ref *QueueFileReference) error {
 }
 
 func (x *ListenCommand) Execute(args []string) error {
+	config, err := LoadConfig(options.Base)
+	if err != nil {
+		return err
+	}
+
 	x.openedReference = make(map[string]*QueueFileReference)
 	defer func() {
 		for _, ref := range x.openedReference {
@@ -71,10 +74,9 @@ func (x *ListenCommand) Execute(args []string) error {
 	if len(args) != 0 {
 		return fmt.Errorf("Takes no argument")
 	}
-	var err error
-	x.errorMail, err = mail.ParseAddress(x.DefaultMail)
+	x.errorMail, err = mail.ParseAddress(config.KeyEmail)
 	if err != nil {
-		log.Printf("[WARNING]: Could not set mail to %s: %s", x.DefaultMail, err)
+		log.Printf("[WARNING]: Could not set mail to %s: %s", config.KeyEmail, err)
 		x.errorMail = nil
 	}
 
@@ -108,7 +110,6 @@ func init() {
 		"Listen for incoming .changes file",
 		"Listen for incoming .changes file",
 		&ListenCommand{
-			Dir:         path.Join(os.Getenv("HOME"), "incoming"),
-			DefaultMail: os.Getenv("USER") + "@localhost",
+			Dir: path.Join(os.Getenv("HOME"), "incoming"),
 		})
 }
