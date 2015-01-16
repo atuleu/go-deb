@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/mail"
 	"os"
-	"path"
 	"strings"
 
 	deb ".."
@@ -59,22 +58,22 @@ func (x *Interactor) ListDistributions() map[deb.Codename][]deb.Architecture {
 type IncludeResult struct {
 	SendTo        *mail.Address
 	ShouldReport  bool
-	FilesToRemove []string
+	FilesToRemove []*QueueFileReference
 }
 
-func (x *Interactor) ProcessChangesFile(filepath string) (*IncludeResult, error) {
+func (x *Interactor) ProcessChangesFile(ref *QueueFileReference, out io.Writer) (*IncludeResult, error) {
 
 	res := &IncludeResult{
 		SendTo:        nil,
-		FilesToRemove: make([]string, 0, 3),
+		FilesToRemove: make([]*QueueFileReference, 0, 3),
 		ShouldReport:  false,
 	}
 
-	if strings.HasSuffix(filepath, ".changes") == false {
-		return res, fmt.Errorf("Invalid filename %s", filepath)
+	if strings.HasSuffix(ref.Name, ".changes") == false {
+		return res, fmt.Errorf("Invalid filename %s", ref.Name)
 	}
 
-	f, err := os.Open(filepath)
+	f, err := os.Open(ref.Path())
 	if err != nil {
 		return res, err
 	}
@@ -82,7 +81,7 @@ func (x *Interactor) ProcessChangesFile(filepath string) (*IncludeResult, error)
 	r, authErr := x.keyManager.CheckAndRemoveClearsigned(f)
 	if authErr != nil {
 		if r != nil {
-			authErr = fmt.Errorf("Unauthorized .changes upload: %s", err)
+			authErr = fmt.Errorf("Unauthorized .changes upload: %s", authErr)
 			res.ShouldReport = true
 		} else {
 			return res, authErr
@@ -94,9 +93,12 @@ func (x *Interactor) ProcessChangesFile(filepath string) (*IncludeResult, error)
 		return res, err
 	}
 	res.SendTo = changes.Maintainer
-	basepath := path.Dir(filepath)
-	for _, f := range changes.Md5Files {
-		res.FilesToRemove = append(res.FilesToRemove, path.Join(basepath, f.Name))
+	for _, fileToDelete := range changes.Md5Files {
+		res.FilesToRemove = append(res.FilesToRemove, &QueueFileReference{
+			Name:      fileToDelete.Name,
+			dir:       ref.dir,
+			Component: ref.Component,
+		})
 	}
 
 	if authErr != nil {

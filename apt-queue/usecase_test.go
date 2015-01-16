@@ -17,7 +17,9 @@ var _ = Suite(&UseCaseSuite{})
 func Test(t *testing.T) { TestingT(t) }
 
 func (s *UseCaseSuite) TestChangeFileProcessing(c *C) {
-	res, err := s.x.ProcessChangesFile("")
+	res, err := s.x.ProcessChangesFile(&QueueFileReference{
+		Name: "",
+	}, nil)
 	c.Check(res, NotNil)
 	c.Check(res.SendTo, IsNil)
 	c.Check(len(res.FilesToRemove), Equals, 0)
@@ -26,7 +28,9 @@ func (s *UseCaseSuite) TestChangeFileProcessing(c *C) {
 	f, err := ioutil.TempFile("", "test")
 	defer os.Remove(f.Name())
 
-	res, err = s.x.ProcessChangesFile(f.Name() + ".changes")
+	res, err = s.x.ProcessChangesFile(&QueueFileReference{
+		Name: f.Name() + ".changes",
+	}, nil)
 	c.Check(res, NotNil)
 	c.Check(res.SendTo, IsNil)
 	c.Check(len(res.FilesToRemove), Equals, 0)

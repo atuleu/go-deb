@@ -3,43 +3,62 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
+	deb ".."
 	"gopkg.in/fsnotify.v1"
 )
 
-type Packagereceiver interface {
-	Next() (string, error)
-	Release(string)
+type QueueFileReference struct {
+	Name      string
+	Component deb.Component
+	dir       string
+}
+
+func (r *QueueFileReference) Id() string {
+	if len(r.Component) != 0 {
+		return path.Join(string(r.Component), r.Name)
+	}
+	return r.Name
+}
+
+func (r *QueueFileReference) Path() string {
+	return path.Join(r.dir, string(r.Component), r.Name)
+}
+
+type PackageReceiver interface {
+	Next() (*QueueFileReference, error)
+	Release(*QueueFileReference)
 }
 
 type NotifyFileReceiver struct {
-	watcheddir   string
-	stagedir     string
-	staggedfiles map[string][]string
+	watcheddir  string
+	stagedir    string
+	stagedFiles map[string][]string
 
 	watcher   *fsnotify.Watcher
-	files     chan string
-	torelease chan string
+	files     chan *QueueFileReference
+	torelease chan *QueueFileReference
 	errors    chan error
 }
 
 func NewNotifyFileReceiver(dir string) (*NotifyFileReceiver, error) {
 	res := &NotifyFileReceiver{
-		watcheddir:   dir,
-		files:        make(chan string, 1),
-		torelease:    make(chan string),
-		errors:       make(chan error),
-		staggedfiles: make(map[string][]string),
+		watcheddir:  dir,
+		files:       make(chan *QueueFileReference, 1),
+		torelease:   make(chan *QueueFileReference),
+		errors:      make(chan error),
+		stagedFiles: make(map[string][]string),
 	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
 	}
-	res.stagedir = path.Join(path.Dir(abs), "incoming-stagged")
+	res.stagedir = path.Join(path.Dir(abs), "incoming-staging")
 
 	toEnsureEmpty := []string{dir, res.stagedir}
 	for _, d := range toEnsureEmpty {
@@ -88,6 +107,16 @@ func NewNotifyFileReceiver(dir string) (*NotifyFileReceiver, error) {
 }
 
 func (r *NotifyFileReceiver) handleEvent(ev fsnotify.Event) error {
+	if ev.Op == fsnotify.Create {
+		info, err := os.Stat(ev.Name)
+		if err != nil {
+			return err
+		}
+		if info.IsDir() == true {
+			return r.watcher.Add(ev.Name)
+		}
+	}
+
 	if ev.Op&fsnotify.Chmod == 0 {
 		return nil
 	}
@@ -110,21 +139,39 @@ func (r *NotifyFileReceiver) handleEvent(ev fsnotify.Event) error {
 	default:
 		return nil
 	}
-	basename := path.Base(ev.Name)
-	_, exists := r.staggedfiles[basename]
-	if exists == false {
-		dest := path.Join(r.stagedir, basename)
-		if err := os.Rename(ev.Name, dest); err != nil {
+
+	fDir := path.Dir(ev.Name)
+	component := ""
+	if fDir != r.watcheddir {
+		component = path.Base(fDir)
+		fDir = path.Dir(fDir)
+		if fDir != r.watcheddir {
+			log.Printf("File %s is not in directory %s(/<component>)?/", ev.Name, r.watcheddir)
+			return nil
+		}
+		err := os.MkdirAll(path.Join(r.stagedir, component), 0755)
+		if err != nil {
 			return err
 		}
-		r.staggedfiles[basename] = []string{}
+	}
+	ref := &QueueFileReference{
+		Name:      path.Base(ev.Name),
+		Component: deb.Component(component),
+		dir:       r.stagedir,
+	}
+	_, exists := r.stagedFiles[ref.Id()]
+	if exists == false {
+		if err := os.Rename(ev.Name, ref.Path()); err != nil {
+			return err
+		}
+		r.stagedFiles[ref.Id()] = []string{}
 		go func() {
-			r.files <- dest
+			r.files <- ref
 		}()
 		return nil
 	}
 
-	destfile, err := ioutil.TempFile(r.stagedir, basename+".")
+	destfile, err := ioutil.TempFile(path.Join(r.stagedir, string(ref.Component)), ref.Name+".")
 	if err != nil {
 		return err
 	}
@@ -134,55 +181,57 @@ func (r *NotifyFileReceiver) handleEvent(ev fsnotify.Event) error {
 
 	err = os.Rename(ev.Name, dest)
 
-	r.staggedfiles[basename] = append(r.staggedfiles[basename], dest)
+	r.stagedFiles[ref.Id()] = append(r.stagedFiles[ref.Id()], dest)
 	return nil
 }
 
-func (r *NotifyFileReceiver) Next() (string, error) {
+func (r *NotifyFileReceiver) Next() (*QueueFileReference, error) {
 	select {
 	case err := <-r.errors:
-		return "", err
+		return nil, err
 	case f := <-r.files:
+		log.Printf("Received %s", f.Id())
 		return f, nil
 	}
 }
 
-func (r *NotifyFileReceiver) release(pathname string) error {
-	if path.Dir(pathname) != r.stagedir {
-		return fmt.Errorf("file %s is not in %s", pathname, r.stagedir)
+func (r *NotifyFileReceiver) release(ref *QueueFileReference) error {
+	if ref.dir != r.stagedir {
+		return fmt.Errorf("file %s is not in %s", ref.Id(), r.stagedir)
 	}
-	basename := path.Base(pathname)
-	_, ok := r.staggedfiles[basename]
+
+	_, ok := r.stagedFiles[ref.Id()]
 	if ok == false {
-		return fmt.Errorf("Could not release unstored file %s", pathname)
+		return fmt.Errorf("Could not release unstored file %s", ref.Id())
 	}
-	err := os.Remove(pathname)
+	err := os.Remove(ref.Path())
 	if err != nil {
 		return err
 	}
 
-	if len(r.staggedfiles[basename]) == 0 {
-		delete(r.staggedfiles, basename)
+	if len(r.stagedFiles[ref.Id()]) == 0 {
+		delete(r.stagedFiles, ref.Id())
 		return nil
 	}
 
-	newfile := r.staggedfiles[basename][0]
-	err = os.Rename(newfile, path.Join(r.stagedir, basename))
+	newfile := r.stagedFiles[ref.Id()][0]
+	err = os.Rename(newfile, ref.Path())
 	if err != nil {
 		return err
 	}
-	r.staggedfiles[basename] = r.staggedfiles[basename][1:]
+	r.stagedFiles[ref.Id()] = r.stagedFiles[ref.Id()][1:]
 
 	// signal a new one is here
 	go func() {
-		r.files <- pathname
+		r.files <- ref
 	}()
 
 	return nil
 }
 
-func (r *NotifyFileReceiver) Release(path string) {
+func (r *NotifyFileReceiver) Release(ref *QueueFileReference) {
 	go func() {
-		r.torelease <- path
+		log.Printf("deleting %s", ref.Id())
+		r.torelease <- ref
 	}()
 }

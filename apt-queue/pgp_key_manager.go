@@ -19,12 +19,12 @@ type PgpKeyManager interface {
 	Remove(string) error
 	CheckAndRemoveClearsigned(r io.Reader) (io.Reader, error)
 	PrivateShortKeyID() string
-	SetupSignKey(conf *Config) error
+	SetupSignKey(conf *Config) (*Config, error)
 }
 
 type GpgKeyManager struct {
 	public_keys openpgp.KeyRing
-	secret_keys openpgp.KeyRing
+	secret_keys openpgp.EntityList
 	masterKeyId string
 	gnupghome   string
 }
@@ -63,7 +63,6 @@ func (m *GpgKeyManager) load() error {
 	if err != nil && os.IsNotExist(err) == false {
 		return err
 	}
-
 	if err == nil {
 		m.secret_keys, err = openpgp.ReadKeyRing(f)
 		if err != nil {
@@ -72,24 +71,15 @@ func (m *GpgKeyManager) load() error {
 	}
 
 	if len(m.masterKeyId) > 0 {
-		var err error = nil
-		if m.secret_keys == nil {
-			err = fmt.Errorf("There is no private keyring")
-		} else {
-			good := false
-			for _, k := range m.secret_keys.DecryptionKeys() {
-				if k.PrivateKey.KeyIdShortString() == m.masterKeyId {
-					good = true
-					break
-				}
-			}
-			if good == false {
-				err = fmt.Errorf("Could not found required private key %s", m.masterKeyId)
-			}
+		if len(m.secret_keys) == 0 {
+			return fmt.Errorf("There is no private keyring")
+		} else if len(m.secret_keys) > 1 {
+			return fmt.Errorf("There is more than one private key")
 		}
 
-		if err != nil {
-			return err
+		keyId := m.PrivateShortKeyID()
+		if m.masterKeyId != keyId {
+			return fmt.Errorf("Configuration ask for private key %s, but only %s is accessible", m.masterKeyId, keyId)
 		}
 
 	}
@@ -139,9 +129,9 @@ func (m *GpgKeyManager) Add(r io.Reader) error {
 func (m *GpgKeyManager) List() openpgp.EntityList {
 	res := make(openpgp.EntityList, 0)
 
-	encryptioneyId := m.PrivateShortKeyID()
+	encryptionKeyId := m.PrivateShortKeyID()
 	for _, k := range m.public_keys.DecryptionKeys() {
-		if k.PublicKey.KeyIdShortString() == encryptioneyId {
+		if k.PublicKey.KeyIdShortString() == encryptionKeyId {
 			continue
 		}
 		res = append(res, k.Entity)
@@ -179,46 +169,57 @@ func (m *GpgKeyManager) CheckAndRemoveClearsigned(r io.Reader) (io.Reader, error
 }
 
 func (m *GpgKeyManager) PrivateShortKeyID() string {
-	if len(m.secret_keys.DecryptionKeys()) == 0 {
+	if len(m.secret_keys) != 1 {
 		return ""
 	}
-	if len(m.secret_keys.DecryptionKeys()) != 1 {
-		panic("I have several signing key")
-	}
-	return m.secret_keys.DecryptionKeys()[0].PrivateKey.KeyIdShortString()
+	return m.secret_keys[0].PrivateKey.KeyIdShortString()
 }
 
-func (m *GpgKeyManager) SetupSignKey(conf *Config) error {
+func (m *GpgKeyManager) SetupSignKey(conf *Config) (*Config, error) {
 	if len(conf.SignWith) != 0 {
-		if len(m.PrivateShortKeyID()) != 0 {
-			return fmt.Errorf("Cannot setup signing key, as I have already a signing key %s, and configuration want %s",
+		if len(m.PrivateShortKeyID()) != 0 && conf.SignWith != m.PrivateShortKeyID() {
+			return nil, fmt.Errorf("Cannot setup signing key, as I have already a signing key %s, and configuration want %s",
 				m.PrivateShortKeyID(),
 				conf.SignWith)
 		}
 	}
-	if len(m.secret_keys.DecryptionKeys()) == 0 {
 
-		cmd := m.GpgCommand("--batch", "--no-tty", "--gen-key")
+	if len(m.secret_keys) == 0 {
+
+		cmd := m.GpgCommand("--batch", "-v", "--gen-key")
 
 		var in bytes.Buffer
 		cmd.Stdin = &in
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		sync := make(chan error)
+		go func() {
+			sync <- cmd.Run()
+		}()
+
 		fmt.Fprintf(&in, "Key-Type: %s\n", conf.KeyType)
 		fmt.Fprintf(&in, "Key-Length: %d\n", conf.KeySize)
 		fmt.Fprintf(&in, "Name-Real: %s\n", conf.KeyName)
 		fmt.Fprintf(&in, "Name-Comment: %s\n", conf.KeyComment)
 		fmt.Fprintf(&in, "Name-Email: %s\n%%commit\n", conf.KeyEmail)
-		out, err := cmd.CombinedOutput()
+
+		err := <-sync
+
 		if err != nil {
-			return fmt.Errorf("Could not generate signing key: %s\n%s", err, out)
+			return nil, fmt.Errorf("Could not generate signing key: %s", err)
 		}
 
 		err = m.load()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 	}
 
 	conf.SignWith = m.PrivateShortKeyID()
-	return conf.Save()
+	err := conf.Save()
+	if err != nil {
+		return nil, err
+	}
+	return conf, nil
 }

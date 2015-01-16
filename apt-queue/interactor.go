@@ -6,13 +6,16 @@ type Interactor struct {
 }
 
 func NewInteractor(opt *Options) (*Interactor, error) {
-	res := &Interactor{}
-	var err error
-	res.keyManager, err = NewGpgKeyManager(nil)
+	config, err := LoadConfig(opt.Base)
 	if err != nil {
 		return nil, err
 	}
-	res.repo, err = NewRepreproRepository(nil)
+	res := &Interactor{}
+	res.keyManager, err = NewGpgKeyManager(config)
+	if err != nil {
+		return nil, err
+	}
+	res.repo, err = NewRepreproRepository(config)
 	if err != nil {
 		return nil, err
 	}
