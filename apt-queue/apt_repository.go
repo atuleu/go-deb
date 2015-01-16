@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -24,11 +26,12 @@ type AptRepo interface {
 	Add(deb.Codename, []deb.Architecture, []deb.Component) error
 	Remove(deb.Codename, []deb.Architecture, []deb.Component) error
 	List() map[deb.Codename]RepoDist
-	Include(string, deb.Codename, []deb.Component) error
+	Include(*QueueFileReference, deb.Codename, []deb.Component) ([]byte, error)
 }
 
 type RepreproRepository struct {
 	workingdir                           string
+	keyringdir                           string
 	confdir                              string
 	distConfigPath                       string
 	lock                                 lockfile.Lockfile
@@ -40,10 +43,11 @@ type RepreproRepository struct {
 func NewRepreproRepository(conf *Config) (*RepreproRepository, error) {
 	res := &RepreproRepository{
 		workingdir:  conf.RepositoryPath(),
+		keyringdir:  conf.Gnupghome(),
 		Origin:      conf.Origin,
 		Label:       conf.Label,
 		Description: conf.Description,
-		SignWith:    conf.Label,
+		SignWith:    conf.SignWith,
 		dists:       make(map[deb.Codename]RepoDist),
 	}
 
@@ -240,6 +244,14 @@ func (r *RepreproRepository) save() error {
 		fmt.Fprintf(f, "\n\n")
 	}
 
+	optF, err := os.Create(path.Join(r.workingdir, "conf/options"))
+	if err != nil {
+		return err
+	}
+	defer optF.Close()
+	fmt.Fprintf(optF, "verbose\n")
+	fmt.Fprintf(optF, "basedir .\n")
+
 	return nil
 }
 
@@ -307,6 +319,20 @@ func (r *RepreproRepository) Add(d deb.Codename, archs []deb.Architecture, comps
 		return err
 	}
 
+	if len(archs) != 0 {
+		for _, a := range archs {
+			log.Printf("Flooding up database for architecture %s", a)
+			cmd := exec.Command("reprepro", "flood", string(d), string(a))
+			cmd.Dir = r.workingdir
+			cmd.Env = []string{"GNUPGHOME=" + r.keyringdir}
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("Could not flood up reprepro architure %s/%s: %s\n%s", d, a, err, out)
+			}
+		}
+
+	}
+
 	return nil
 }
 
@@ -358,6 +384,16 @@ func (r *RepreproRepository) Remove(d deb.Codename, archs []deb.Architecture, co
 		return err
 	}
 
+	//run reprepro clearvanished
+	log.Printf("cleaning up database")
+	cmd := exec.Command("reprepro", "--delete", "clearvanished")
+	cmd.Dir = r.workingdir
+	cmd.Env = []string{"GNUPGHOME=" + r.keyringdir}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Could not cleanup reprepro: %s\n%s", err, out)
+	}
+
 	return nil
 }
 
@@ -365,25 +401,26 @@ func (r *RepreproRepository) List() map[deb.Codename]RepoDist {
 	return r.dists
 }
 
-func (r *RepreproRepository) Include(changePath string, d deb.Codename, comps []deb.Component) error {
+func (r *RepreproRepository) Include(ref *QueueFileReference, d deb.Codename, comps []deb.Component) ([]byte, error) {
 	if err := r.tryLock(); err != nil {
-		return err
+		return nil, err
 	}
 	defer r.unlockOrPanic()
 
 	dist, ok := r.dists[d]
 	if ok == false {
-		return fmt.Errorf("Distribution %s is not supported", d)
+		return nil, fmt.Errorf("Distribution %s is not supported", d)
 	}
 
 	if len(comps) == 0 {
 		comps = []deb.Component{"all"}
 	}
-
+	var out bytes.Buffer
 	for _, c := range comps {
 		var cmd *exec.Cmd = nil
 		if c == "all" {
-			cmd = exec.Command("reprepro", "include", string(dist.Codename), changePath)
+			fmt.Fprintf(&out, "including %s in all components\n", ref.Name)
+			cmd = exec.Command("reprepro", "include", string(dist.Codename), ref.Path())
 		} else {
 			ok = false
 			for _, supportedC := range dist.Components {
@@ -393,18 +430,24 @@ func (r *RepreproRepository) Include(changePath string, d deb.Codename, comps []
 				}
 			}
 			if ok == false {
-				return fmt.Errorf("Distribution %s does not list component %s", d, c)
+				return out.Bytes(), fmt.Errorf("Distribution %s does not list component %s", d, c)
 			}
-
-			cmd = exec.Command("reprepro", "-C", string(c), "include", string(dist.Codename), changePath)
+			fmt.Fprintf(&out, "including %s in %s\n", ref.Name, c)
+			cmd = exec.Command("reprepro", "-C", string(c), "include", string(dist.Codename), ref.Path())
 		}
 
 		cmd.Dir = r.workingdir
-		out, err := cmd.CombinedOutput()
+		cmd.Env = []string{"GNUPGHOME=" + r.keyringdir}
+		cmd.Stdout = &out
+		cmd.Stderr = &out
+		cmd.Stdin = nil
+		fmt.Fprintf(&out, "--- Running %s\n", cmd.Args)
+
+		err := cmd.Run()
 		if err != nil {
-			return fmt.Errorf("Could not include %s: %s\n%s", changePath, err, out)
+			return out.Bytes(), fmt.Errorf("Could not include %s: %s", ref.Id(), err)
 		}
 	}
 
-	return nil
+	return out.Bytes(), nil
 }

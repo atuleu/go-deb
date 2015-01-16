@@ -69,9 +69,10 @@ func (x *Interactor) ListDistributions() []DistributionSupport {
 }
 
 type IncludeResult struct {
-	SendTo        *mail.Address
+	SendTo        []*mail.Address
 	ShouldReport  bool
 	FilesToRemove []*QueueFileReference
+	Output        []byte
 }
 
 func (x *Interactor) ProcessChangesFile(ref *QueueFileReference, out io.Writer) (*IncludeResult, error) {
@@ -80,6 +81,7 @@ func (x *Interactor) ProcessChangesFile(ref *QueueFileReference, out io.Writer) 
 		SendTo:        nil,
 		FilesToRemove: make([]*QueueFileReference, 0, 3),
 		ShouldReport:  false,
+		Output:        nil,
 	}
 
 	if strings.HasSuffix(ref.Name, ".changes") == false {
@@ -91,7 +93,7 @@ func (x *Interactor) ProcessChangesFile(ref *QueueFileReference, out io.Writer) 
 		return res, err
 	}
 
-	r, authErr := x.keyManager.CheckAndRemoveClearsigned(f)
+	r, entity, authErr := x.keyManager.CheckAndRemoveClearsigned(f)
 	if authErr != nil {
 		if r != nil {
 			authErr = fmt.Errorf("Unauthorized .changes upload: %s", authErr)
@@ -100,12 +102,26 @@ func (x *Interactor) ProcessChangesFile(ref *QueueFileReference, out io.Writer) 
 			return res, authErr
 		}
 	}
-
+	if entity != nil {
+		for _, identity := range entity.Identities {
+			mail, err := mail.ParseAddress(identity.UserId.Email)
+			mail.Name = identity.UserId.Name
+			if err != nil {
+				return res, err
+			}
+			res.SendTo = append(res.SendTo, mail)
+		}
+	}
 	changes, err := deb.ParseChangeFile(r)
 	if err != nil {
 		return res, err
 	}
-	res.SendTo = changes.Maintainer
+	// We should not send to the maintainer(s), for example, we would
+	// like not to spam all ubuntu developers if we recompile one of
+	// their package to our local setup !
+
+	//res.SendTo = append(res.SendTo, changes.Maintainer)
+
 	for _, fileToDelete := range changes.Md5Files {
 		res.FilesToRemove = append(res.FilesToRemove, &QueueFileReference{
 			Name:      fileToDelete.Name,
@@ -117,6 +133,10 @@ func (x *Interactor) ProcessChangesFile(ref *QueueFileReference, out io.Writer) 
 	if authErr != nil {
 		return res, authErr
 	}
-
-	return res, deb.NotYetImplemented()
+	var comps []deb.Component
+	if len(ref.Component) > 0 {
+		comps = append(comps, ref.Component)
+	}
+	res.Output, err = x.repo.Include(ref, changes.Dist, comps)
+	return res, err
 }

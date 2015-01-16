@@ -36,6 +36,11 @@ func (x *ListenCommand) handleChanges(ref *QueueFileReference) error {
 		x.fileReceiver.Release(ref)
 	}()
 
+	if res.ShouldReport == true {
+		res.SendTo = append(res.SendTo, x.errorMail)
+	}
+	log.Printf("Would report to %s", res.SendTo)
+	log.Printf("Output is :\n%s\n", res.Output)
 	if err == nil {
 		//TODO: send a mail to use that it is
 
@@ -44,14 +49,7 @@ func (x *ListenCommand) handleChanges(ref *QueueFileReference) error {
 		return nil
 	}
 
-	//TODO: prepare a failure mail
-
-	if res.ShouldReport == true {
-		//TODO: send an email to both admin and user if there is one
-
-	} else {
-		//TODO: send an email only to maintainer
-	}
+	//TODO: send an email only to maintainer
 
 	log.Printf("Could not include %s: %s", ref.Id(), err)
 

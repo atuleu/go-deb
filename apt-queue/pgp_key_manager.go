@@ -17,7 +17,7 @@ type PgpKeyManager interface {
 	Add(r io.Reader) error
 	List() openpgp.EntityList
 	Remove(string) error
-	CheckAndRemoveClearsigned(r io.Reader) (io.Reader, error)
+	CheckAndRemoveClearsigned(r io.Reader) (io.Reader, *openpgp.Entity, error)
 	PrivateShortKeyID() string
 	SetupSignKey(conf *Config) (*Config, error)
 }
@@ -152,20 +152,20 @@ func (m *GpgKeyManager) Remove(keyId string) error {
 	return nil
 }
 
-func (m *GpgKeyManager) CheckAndRemoveClearsigned(r io.Reader) (io.Reader, error) {
+func (m *GpgKeyManager) CheckAndRemoveClearsigned(r io.Reader) (io.Reader, *openpgp.Entity, error) {
 	data, err := ioutil.ReadAll(r)
 	block, rest := clearsign.Decode(data)
 
 	if block == nil {
-		return bytes.NewReader(rest), fmt.Errorf("File is not clearsigned with a signature")
+		return bytes.NewReader(rest), nil, fmt.Errorf("File is not clearsigned with a signature")
 	}
 
 	res := bytes.NewReader(block.Plaintext)
-	_, err = openpgp.CheckDetachedSignature(m.public_keys,
+	entity, err := openpgp.CheckDetachedSignature(m.public_keys,
 		bytes.NewReader(block.Bytes),
 		block.ArmoredSignature.Body)
 
-	return res, err
+	return res, entity, err
 }
 
 func (m *GpgKeyManager) PrivateShortKeyID() string {
