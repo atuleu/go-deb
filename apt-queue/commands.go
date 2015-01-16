@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	deb ".."
 )
@@ -9,19 +10,72 @@ import (
 type AddKeyCommand struct{}
 
 func (x *AddKeyCommand) Execute(args []string) error {
-	return deb.NotYetImplemented()
+	if len(args) == 0 {
+		return fmt.Errorf("Please specify on the command line the armored gpg file to add")
+	}
+	i, err := NewInteractor(options)
+	if err != nil {
+		return err
+	}
+
+	for _, fpath := range args {
+		f, err := os.Open(fpath)
+		if err != nil {
+			return err
+		}
+		err = i.AuthorizePublicKey(f)
+		if err != nil {
+			return err
+		}
+	}
+
+	fmt.Printf("All the keys where added, please restart your listening queue in order to authorize these new keys\n")
+	return nil
 }
 
 type RemoveKeyCommand struct{}
 
 func (x *RemoveKeyCommand) Execute(args []string) error {
-	return deb.NotYetImplemented()
+	if len(args) == 0 {
+		return fmt.Errorf("Please specify on the command line the key id to remove")
+	}
+
+	i, err := NewInteractor(options)
+	if err != nil {
+		return err
+	}
+
+	for _, id := range args {
+		if err = i.UnauthorizePublicKey(id); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 type ListKeyCommand struct{}
 
 func (x *ListKeyCommand) Execute(args []string) error {
-	return deb.NotYetImplemented()
+	if len(args) != 0 {
+		return fmt.Errorf("list-key takes no arguments")
+	}
+	i, err := NewInteractor(options)
+	if err != nil {
+		return err
+	}
+
+	keys := i.ListAutorizedKeys()
+	if len(keys) == 0 {
+		fmt.Printf("There is no authorized keys.\n")
+		return nil
+	}
+	fmt.Printf("Authorized keys:\n")
+	for _, key := range keys {
+		fmt.Printf("%s: %s\n", key.Id, key.Fullname)
+	}
+
+	return nil
 }
 
 type DistributionManipCommand struct {

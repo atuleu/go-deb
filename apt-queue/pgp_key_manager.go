@@ -23,7 +23,7 @@ type PgpKeyManager interface {
 }
 
 type GpgKeyManager struct {
-	public_keys openpgp.KeyRing
+	public_keys openpgp.EntityList
 	secret_keys openpgp.EntityList
 	masterKeyId string
 	gnupghome   string
@@ -130,11 +130,11 @@ func (m *GpgKeyManager) List() openpgp.EntityList {
 	res := make(openpgp.EntityList, 0)
 
 	encryptionKeyId := m.PrivateShortKeyID()
-	for _, k := range m.public_keys.DecryptionKeys() {
-		if k.PublicKey.KeyIdShortString() == encryptionKeyId {
+	for _, k := range m.public_keys {
+		if k.PrimaryKey.KeyIdShortString() == encryptionKeyId {
 			continue
 		}
-		res = append(res, k.Entity)
+		res = append(res, k)
 	}
 	return res
 }
