@@ -40,19 +40,32 @@ func (x *Interactor) ListAutorizedKeys() []KeyDescription {
 
 	}
 	return res
-
 }
 
-func (x *Interactor) AddDistribution(d deb.Codename, a deb.Architecture) error {
-	return deb.NotYetImplemented()
+func (x *Interactor) AddDistribution(d deb.Codename, archs []deb.Architecture, comps []deb.Component) error {
+	return x.repo.Add(d, archs, comps)
 }
 
-func (x *Interactor) RemoveDistribution(d deb.Codename, a deb.Architecture) error {
-	return deb.NotYetImplemented()
+func (x *Interactor) RemoveDistribution(d deb.Codename, archs []deb.Architecture, comps []deb.Component) error {
+	return x.repo.Remove(d, archs, comps)
 }
 
-func (x *Interactor) ListDistributions() map[deb.Codename][]deb.Architecture {
-	return nil
+type DistributionSupport struct {
+	Codename      deb.Codename
+	Architectures []deb.Architecture
+	Components    []deb.Component
+}
+
+func (x *Interactor) ListDistributions() []DistributionSupport {
+	res := make([]DistributionSupport, 0, len(x.repo.List()))
+	for codename, def := range x.repo.List() {
+		res = append(res, DistributionSupport{
+			Codename:      codename,
+			Architectures: def.Architectures,
+			Components:    def.Components,
+		})
+	}
+	return res
 }
 
 type IncludeResult struct {

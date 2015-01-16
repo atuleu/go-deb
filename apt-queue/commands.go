@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	deb ".."
 )
 
@@ -22,29 +24,70 @@ func (x *ListKeyCommand) Execute(args []string) error {
 	return deb.NotYetImplemented()
 }
 
-type AddDistributionCommand struct {
-	Dist string `long:"dist" short:"D" description:"Distribution to add" required:"true"`
-	Arch string `long:"arch" short:"A" description:"Architecture to add" required:"true"`
+type DistributionManipCommand struct {
+	Dists []string `long:"dist" short:"D" description:"Distribution(s) to add" required:"true"`
+	Archs []string `long:"arch" short:"A" description:"Architecture(s) to add"`
+	Comps []string `long:"component" short:"C" description:"Components(s) to add"`
+	name  string
+	op    func(*Interactor, deb.Codename, []deb.Architecture, []deb.Component) error
 }
 
-func (x *AddDistributionCommand) Execute(args []string) error {
-	return deb.NotYetImplemented()
-}
+func (x *DistributionManipCommand) Execute(args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("%s command takes no arguments", x.name)
+	}
 
-type RemoveDistributionCommand struct {
-	Dist string `long:"dist" short:"D" description:"Distribution to add" required:"true"`
-	Arch string `long:"arch" short:"A" description:"Architecture to add" required:"false"`
-}
+	i, err := NewInteractor(options)
+	if err != nil {
+		return err
+	}
+	archs := make([]deb.Architecture, 0, len(x.Archs))
+	comps := make([]deb.Component, 0, len(x.Comps))
+	for _, a := range x.Archs {
+		arch, err := deb.ParseArchitecture(a)
+		if err != nil {
+			return err
+		}
+		archs = append(archs, arch)
+	}
+	for _, c := range x.Comps {
+		comps = append(comps, deb.Component(c))
+	}
 
-func (x *RemoveDistributionCommand) Execute(args []string) error {
-	return deb.NotYetImplemented()
+	for _, d := range x.Dists {
+		if err = x.op(i, deb.Codename(d), archs, comps); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type ListDistributionCommand struct {
 }
 
 func (x *ListDistributionCommand) Execute(args []string) error {
-	return deb.NotYetImplemented()
+	i, err := NewInteractor(options)
+	if err != nil {
+		return err
+	}
+	dists := i.ListDistributions()
+	if len(dists) == 0 {
+		fmt.Printf("There is no distribution supported\n")
+		return nil
+	}
+
+	fmtStr := "%20s | %10s | %20s\n"
+	fmt.Printf(fmtStr, "Codename", "Architecture", "Component")
+	fmt.Printf(fmtStr, "--------------------", "----------", "--------------------")
+	for _, d := range dists {
+		for _, a := range d.Architectures {
+			for _, c := range d.Components {
+				fmt.Printf(fmtStr, d.Codename, a, c)
+			}
+		}
+	}
+
+	return nil
 }
 
 func init() {
@@ -66,12 +109,22 @@ func init() {
 	parser.AddCommand("add",
 		"Add distribution /  architecture",
 		"Adds a couple distribution / architecture from the archive",
-		&AddDistributionCommand{})
+		&DistributionManipCommand{
+			op: func(i *Interactor, d deb.Codename, a []deb.Architecture, c []deb.Component) error {
+				return i.AddDistribution(d, a, c)
+			},
+			name: "add",
+		})
 
 	parser.AddCommand("remove",
 		"Removes distribution /  architecture",
 		"Removes a couple distribution / architecture from the archive",
-		&RemoveDistributionCommand{})
+		&DistributionManipCommand{
+			op: func(i *Interactor, d deb.Codename, a []deb.Architecture, c []deb.Component) error {
+				return i.RemoveDistribution(d, a, c)
+			},
+			name: "remove",
+		})
 
 	parser.AddCommand("list",
 		"Lists archived distributions and architectures",

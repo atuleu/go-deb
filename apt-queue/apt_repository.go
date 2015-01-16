@@ -85,7 +85,7 @@ func (r *RepreproRepository) unlockOrPanic() {
 
 func (r *RepreproRepository) setField(name, value string) error {
 	value = strings.TrimSpace(value)
-	fieldValue := reflect.ValueOf(r).FieldByName(name)
+	fieldValue := reflect.ValueOf(r).Elem().FieldByName(name)
 	if len(fieldValue.String()) == 0 {
 		fieldValue.SetString(value)
 	}
@@ -126,6 +126,10 @@ func (r *RepreproRepository) load() error {
 		}
 
 		if deb.IsNewParagraph(field) {
+			if len(newDist) == 0 && len(newArch) == 0 && len(newComponents) == 0 {
+				continue
+			}
+
 			if len(newDist) == 0 {
 				return fmt.Errorf("missing Codename:")
 			}
@@ -147,10 +151,11 @@ func (r *RepreproRepository) load() error {
 			newComponents = nil
 			newArch = nil
 			newVendor = deb.Vendor("")
+			continue
 		}
 
 		if len(field.Data) != 1 {
-			return fmt.Errorf("invalide field %s, expected single line", field)
+			return fmt.Errorf("invalid field %s, expected single line", field)
 		}
 
 		switch field.Name {
@@ -195,7 +200,7 @@ func (r *RepreproRepository) load() error {
 	}
 
 	requiredField := []string{"Origin", "Label", "Description", "SignWith"}
-	selfValue := reflect.ValueOf(r)
+	selfValue := reflect.ValueOf(r).Elem()
 	for _, f := range requiredField {
 		fValue := selfValue.FieldByName(f)
 		if len(fValue.String()) == 0 {
@@ -239,10 +244,15 @@ func (r *RepreproRepository) save() error {
 }
 
 func (r *RepreproRepository) Add(d deb.Codename, archs []deb.Architecture, comps []deb.Component) error {
-	toModify, ok := r.dists[d]
+	saved, ok := r.dists[d]
+	toModify := saved
 	if ok == true {
 		existingArch := map[deb.Architecture]bool{}
 		for _, a := range toModify.Architectures {
+			_, ok := deb.ArchitectureList[a]
+			if ok == false {
+				return fmt.Errorf("Unknown architecture %s", a)
+			}
 			existingArch[a] = true
 		}
 		for _, a := range archs {
@@ -271,7 +281,7 @@ func (r *RepreproRepository) Add(d deb.Codename, archs []deb.Architecture, comps
 		if exists == false {
 			return fmt.Errorf("Unknow distribution codename %s", d)
 		}
-		r.dists[d] = RepoDist{
+		toModify = RepoDist{
 			Codename:      d,
 			Vendor:        vendor,
 			Components:    comps,
@@ -279,14 +289,14 @@ func (r *RepreproRepository) Add(d deb.Codename, archs []deb.Architecture, comps
 		}
 	}
 
-	if len(r.dists[d].Components) == 0 {
+	if len(toModify.Components) == 0 {
 		return fmt.Errorf("Invalid %s definition: missing at least one component", d)
 	}
-	if len(r.dists[d].Architectures) == 0 {
+	if len(toModify.Architectures) == 0 {
 		return fmt.Errorf("Invalid %s definition: missing at least one architecture", d)
 	}
 
-	saved := r.dists[d]
+	r.dists[d] = toModify
 
 	if err := r.save(); err != nil {
 		if ok == true {

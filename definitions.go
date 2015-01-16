@@ -143,3 +143,12 @@ func (f *FileReference) CheckFile(basepath string, h hash.Hash) error {
 	}
 	return nil
 }
+
+func ParseArchitecture(s string) (Architecture, error) {
+	a := Architecture(s)
+	_, ok := ArchitectureList[a]
+	if ok == false {
+		return "", fmt.Errorf("Unknown architecture %s", s)
+	}
+	return a, nil
+}
