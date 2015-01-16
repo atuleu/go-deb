@@ -16,6 +16,7 @@ func (s *ControlFileLexerSuite) TestCanLexControlFile(c *C) {
 Hash: SHA1
 
 Format: 3.0 (quilt)
+# Some comment
 Maintainer: Alexandre Tuleu <alexandre.tuleu.2005@polytechnique.org>
 Standards-Version: 3.9.3
 Vcs-Browser: http://googlemock.googlecode.com/svn/trunk/
@@ -23,6 +24,7 @@ Build-Depends: debhelper (>= 8.0.0), cmake,
  foo, bar
 Checksums-Sha1: 
  c178c363b85f51caf01d2a2d2c86b48df417a60d 1786622 gmock_1.6.0.orig.tar.gz
+#still a valid comment, should not break the Checksum field
  d030592231249a9b158eda57beaff197220f8fd2 2726 gmock_1.6.0-2.debian.tar.gz
 `
 	fields := []ControlField{

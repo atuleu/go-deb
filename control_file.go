@@ -135,6 +135,10 @@ func lexNewField(l *ControlFileLexer) lActionFn {
 	}
 
 	//check for a new fieldname
+	if len(line) > 0 && line[0] == '#' {
+		return lexNewField
+	}
+
 	matches := fieldNameRx.FindStringSubmatch(line)
 	if matches == nil {
 		return l.errorf("Got unexpected line `%s'", strings.TrimRight(line, "\n"))
@@ -157,7 +161,7 @@ func lexContinuationLine(l *ControlFileLexer) lActionFn {
 		return l.error(err)
 	}
 
-	if err == io.EOF || nextChar[0] != ' ' {
+	if err == io.EOF || (nextChar[0] != ' ' && nextChar[0] != '#') {
 		// in that case this is not a continuation, we emit
 		l.emitCurrent()
 		// Now we should take care if this is a new paragraph or not
@@ -169,8 +173,11 @@ func lexContinuationLine(l *ControlFileLexer) lActionFn {
 		return l.error(err)
 	}
 
-	//now we append the data, and we iterate
-	l.curField.Data = append(l.curField.Data, strings.TrimSpace(line))
+	if len(line) > 0 && line[0] != '#' {
+		//now we append the data as it isn't a comment
+		l.curField.Data = append(l.curField.Data, strings.TrimSpace(line))
+	}
+	//comment or not we iterate
 	return lexContinuationLine
 }
 
