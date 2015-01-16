@@ -1,13 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 	"log"
 	"net/mail"
 	"os"
 	"path"
 	"strings"
 )
+
+type TemplateArgs struct {
+	AllComp, Succeed                 bool
+	Error, Comp, ChangesName, Output string
+}
 
 type ListenCommand struct {
 	Dir string `short:"D" long:"dir" description:"Directory to listen to"`
@@ -16,9 +23,20 @@ type ListenCommand struct {
 
 	fileReceiver    *NotifyFileReceiver
 	openedReference map[string]*QueueFileReference
+	mailer          *SendMail
 }
 
 func (x *ListenCommand) handleChanges(ref *QueueFileReference) error {
+	mailTemplate, err := template.New("mail").Parse(`<p> This mail is automatically sent by go-deb.apt-queue </p> 
+<h2> The inclusion of {{.ChangesName}} in {{if .AllComp }} all component {{else}} {{.Comp}} {{end}} {{if .Succeed}} succeed {{else}} failed {{end}}:</h2>
+{{if .Succeed }} {{else}}<p> Error is : {{.Error}} </p> {{end}}
+<h3>Reprepro output: </h3>
+<pre>{{.Output}}</pre>
+`)
+
+	if err != nil {
+		return err
+	}
 
 	i, err := NewInteractor(options)
 	if err != nil {
@@ -39,19 +57,32 @@ func (x *ListenCommand) handleChanges(ref *QueueFileReference) error {
 	if res.ShouldReport == true {
 		res.SendTo = append(res.SendTo, x.errorMail)
 	}
-	log.Printf("Would report to %s", res.SendTo)
-	log.Printf("Output is :\n%s\n", res.Output)
-	if err == nil {
-		//TODO: send a mail to use that it is
-
-		log.Printf("Included %s", ref.Id())
-
-		return nil
+	var subject string
+	messageArgs := TemplateArgs{
+		Output:      string(res.Output),
+		ChangesName: ref.Name,
+		Comp:        string(ref.Component),
+		AllComp:     len(ref.Component) == 0,
+		Succeed:     err == nil,
 	}
 
-	//TODO: send an email only to maintainer
+	if err == nil {
+		subject = fmt.Sprintf("Inclusion of %s succeed", ref.Id())
+		log.Printf("Included %s", ref.Id())
+	} else {
+		subject = fmt.Sprintf("Inclusion of %s failed", ref.Id())
+		log.Printf("Could not include %s: %s", ref.Id(), err)
+		messageArgs.Error = fmt.Sprintf("%s", err)
+	}
+	var message bytes.Buffer
 
-	log.Printf("Could not include %s: %s", ref.Id(), err)
+	if err = mailTemplate.Execute(&message, messageArgs); err != nil {
+		return err
+	}
+
+	if err = x.mailer.SendMail(res.SendTo, subject, message.String()); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -61,6 +92,8 @@ func (x *ListenCommand) Execute(args []string) error {
 	if err != nil {
 		return err
 	}
+
+	x.mailer = NewSendMail(config.KeyName, config.KeyEmail)
 
 	x.openedReference = make(map[string]*QueueFileReference)
 	defer func() {
