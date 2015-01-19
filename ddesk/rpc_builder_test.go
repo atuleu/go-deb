@@ -23,7 +23,7 @@ var _ = Suite(&RpcBuilderSuite{})
 
 func (s *RpcBuilderSuite) SetUpSuite(c *C) {
 	var err error
-	s.tmpDir, err = ioutil.TempDir("", "go-deb.builder_test")
+	s.tmpDir, err = ioutil.TempDir("", "go-deb.ddesk_test")
 	c.Assert(err, IsNil)
 	s.sock = path.Join(s.tmpDir, "rpc.sock")
 	s.b = &DebianBuilderStub{

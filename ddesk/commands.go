@@ -9,7 +9,7 @@ import (
 )
 
 type ServeBuilderCommand struct {
-	BasePath string `long:"basepath" short:"b" description:"basepath for the builder to run" default:"/var/lib/go-deb.builder"`
+	BasePath string `long:"basepath" short:"b" description:"basepath for the builder to run" default:"/var/lib/go-deb.ddesk"`
 	Socket   string `long:"socket" short:"s" description:"socket relative to basepath" default:"builder.sock"`
 	Type     string `long:"type" short:"t" description:"type of the builder" default:"cowbuilder"`
 }

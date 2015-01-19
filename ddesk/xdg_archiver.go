@@ -25,7 +25,7 @@ type XdgArchiver struct {
 	auth     DebfileAuthentifier
 }
 
-var xaLockName = "go-dev.builder/archives/global.lock"
+var xaLockName = "go-deb.ddesk/archives/global.lock"
 
 func NewXdgArchiver(auth DebfileAuthentifier) (*XdgArchiver, error) {
 	lockpath, err := xdg.Data.Ensure(xaLockName)

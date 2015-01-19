@@ -19,7 +19,7 @@ type TempHomer struct {
 
 func (h *TempHomer) SetUp() error {
 	var err error
-	h.tmpDir, err = ioutil.TempDir("", "go-deb_builder_test")
+	h.tmpDir, err = ioutil.TempDir("", "go-deb.ddesk_test")
 	if err != nil {
 	}
 	h.OverrideEnv("HOME", h.tmpDir)
@@ -59,7 +59,7 @@ func (s *RepreproSuite) SetUpSuite(c *C) {
 	err := s.h.SetUp()
 	c.Assert(err, IsNil, Commentf("Initialization error %s", err))
 
-	s.repoPath = path.Join(xdg.Data.Home(), "go-deb.builder/reprepro_test")
+	s.repoPath = path.Join(xdg.Data.Home(), "go-deb.ddesk/reprepro_test")
 	s.r, err = NewReprepro(s.repoPath)
 	c.Assert(err, IsNil, Commentf("Initialization error %s", err))
 

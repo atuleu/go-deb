@@ -21,7 +21,7 @@ type XdgHistory struct {
 	data []deb.SourcePackageRef
 }
 
-var xdgHistoryPath = "go-deb.builder/history/data.json"
+var xdgHistoryPath = "go-deb.ddesk/history/data.json"
 
 func NewXdgHistory() (*XdgHistory, error) {
 	res := &XdgHistory{}

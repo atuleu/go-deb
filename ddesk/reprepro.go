@@ -112,9 +112,9 @@ func (r *Reprepro) writeDistributions() error {
 
 	for d, archs := range r.dists {
 		fmt.Fprintf(f, "Codename: %s\n", d)
-		fmt.Fprintf(f, "Origin: Local builder repository\n")
-		fmt.Fprintf(f, "Label: Local builder repository\n")
-		fmt.Fprintf(f, "Description: Local builder repository\n")
+		fmt.Fprintf(f, "Origin: Local ddesk repository\n")
+		fmt.Fprintf(f, "Label: Local ddesk repository\n")
+		fmt.Fprintf(f, "Description: Local ddesk repository\n")
 		fmt.Fprintf(f, "Components: main\n")
 		fmt.Fprintf(f, "Architectures:")
 		for _, a := range archs {

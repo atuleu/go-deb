@@ -19,7 +19,7 @@ type Interactor struct {
 func NewInteractor(o *Options) (*Interactor, error) {
 
 	if o.BuilderType != "client" {
-		return nil, fmt.Errorf("Only client builder are supported, it means that you ahve to run a `sudo builder serve-builder`")
+		return nil, fmt.Errorf("Only client builder are supported, it means that you have to run a `sudo ddesk serve-builder`")
 	}
 
 	res := &Interactor{}
@@ -34,7 +34,7 @@ func NewInteractor(o *Options) (*Interactor, error) {
 		return nil, err
 	}
 
-	res.localRepository, err = NewReprepro(path.Join(xdg.Data.Home(), "go-deb.builder/local_reprepro"))
+	res.localRepository, err = NewReprepro(path.Join(xdg.Data.Home(), "go-deb.ddesk/local_reprepro"))
 	if err != nil {
 		return nil, err
 	}

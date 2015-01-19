@@ -48,7 +48,7 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 	}
 
 	//outputs everything in a temporary directory
-	dest, err := ioutil.TempDir("", "go-deb.builder_output_")
+	dest, err := ioutil.TempDir("", "go-deb.ddesk_output_")
 	if err != nil {
 		return nil, err
 	}

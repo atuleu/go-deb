@@ -243,7 +243,7 @@ type NoValue struct{}
 
 func (b *RpcBuilder) InitSync(args NoValue, res *SyncOutputResults) error {
 	id := <-b.generator
-	tmpFile := path.Join(os.TempDir(), fmt.Sprintf("go-deb.builder-%d-%d.sock", os.Getpid(), id))
+	tmpFile := path.Join(os.TempDir(), fmt.Sprintf("go-deb.ddesk-%d-%d.sock", os.Getpid(), id))
 	l, err := listenUnix(tmpFile)
 	if err != nil {
 		return err

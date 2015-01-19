@@ -25,7 +25,7 @@ func NewXdgUserDistConfig() (*XdgUserDistConfig, error) {
 		supported: make(map[deb.Codename]map[deb.Architecture]bool),
 	}
 	var err error
-	res.dataPath, err = xdg.Config.Ensure("go-deb.builder/dist-config.json")
+	res.dataPath, err = xdg.Config.Ensure("go-deb.ddesk/dist-config.json")
 	if err != nil {
 		return nil, err
 	}
