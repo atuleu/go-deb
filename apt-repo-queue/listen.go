@@ -17,7 +17,8 @@ type TemplateArgs struct {
 }
 
 type ListenCommand struct {
-	Dir string `short:"D" long:"dir" description:"Directory to listen to"`
+	Dir          string `short:"D" long:"dir" description:"Directory to listen to"`
+	WatchingUser string `short:"U" long:"watching-user" description:"sets uid that should be used for the dir watching"`
 
 	errorMail *mail.Address
 
@@ -27,7 +28,7 @@ type ListenCommand struct {
 }
 
 func (x *ListenCommand) handleChanges(ref *QueueFileReference) error {
-	mailTemplate, err := template.New("mail").Parse(`<p> This mail is automatically sent by go-deb.apt-queue </p> 
+	mailTemplate, err := template.New("mail").Parse(`<p> This mail is automatically sent by go-deb.apt-repo-queue </p> 
 <h2> The inclusion of {{.ChangesName}} in {{if .AllComp }} all component {{else}} {{.Comp}} {{end}} {{if .Succeed}} succeed {{else}} failed {{end}}:</h2>
 {{if .Succeed }} {{else}}<p> Error is : {{.Error}} </p> {{end}}
 <h3>Reprepro output: </h3>
@@ -111,7 +112,7 @@ func (x *ListenCommand) Execute(args []string) error {
 		x.errorMail = nil
 	}
 
-	x.fileReceiver, err = NewNotifyFileReceiver(x.Dir)
+	x.fileReceiver, err = NewNotifyFileReceiver(x.Dir, x.WatchingUser)
 	if err != nil {
 		return err
 	}

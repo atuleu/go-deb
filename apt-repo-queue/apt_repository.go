@@ -321,6 +321,9 @@ func (r *RepreproRepository) Add(d deb.Codename, archs []deb.Architecture, comps
 
 	if len(archs) != 0 {
 		for _, a := range archs {
+			if a == deb.Source {
+				continue
+			}
 			log.Printf("Flooding up database for architecture %s", a)
 			cmd := exec.Command("reprepro", "flood", string(d), string(a))
 			cmd.Dir = r.workingdir

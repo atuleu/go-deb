@@ -5,8 +5,10 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/user"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	deb ".."
@@ -46,7 +48,7 @@ type NotifyFileReceiver struct {
 	errors    chan error
 }
 
-func NewNotifyFileReceiver(dir string) (*NotifyFileReceiver, error) {
+func NewNotifyFileReceiver(dir string, username string) (*NotifyFileReceiver, error) {
 	res := &NotifyFileReceiver{
 		watcheddir:  dir,
 		files:       make(chan *QueueFileReference, 1),
@@ -60,12 +62,37 @@ func NewNotifyFileReceiver(dir string) (*NotifyFileReceiver, error) {
 	}
 	res.stagedir = path.Join(path.Dir(abs), "incoming-staging")
 
+	var watchingUser *user.User = nil
+	if len(username) != 0 {
+		watchingUser, err = user.Lookup(username)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	toEnsureEmpty := []string{dir, res.stagedir}
 	for _, d := range toEnsureEmpty {
 		if err = os.RemoveAll(d); err != nil {
 			return nil, err
 		}
 		if err = os.MkdirAll(d, 0755); err != nil {
+			return nil, err
+		}
+
+		if watchingUser == nil {
+			continue
+		}
+
+		uid, err := strconv.ParseInt(watchingUser.Uid, 0, 32)
+		if err != nil {
+			return nil, err
+		}
+		gid, err := strconv.ParseInt(watchingUser.Gid, 0, 32)
+		if err != nil {
+			return nil, err
+		}
+
+		if err = os.Chown(d, int(uid), int(gid)); err != nil {
 			return nil, err
 		}
 	}
