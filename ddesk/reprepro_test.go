@@ -63,8 +63,10 @@ func (s *RepreproSuite) SetUpSuite(c *C) {
 	s.r, err = NewReprepro(s.repoPath)
 	c.Assert(err, IsNil, Commentf("Initialization error %s", err))
 
-	err = s.r.AddDistribution("unstable", deb.Amd64)
+	err = s.r.AddDistribution(deb.Unstable, deb.Amd64)
 	c.Assert(err, IsNil, Commentf("Initialization error %s", err))
+	c.Assert(len(s.r.dists[deb.Unstable]), Equals, 1)
+	c.Assert(s.r.dists[deb.Unstable][deb.Amd64], Equals, true)
 }
 
 func (s *RepreproSuite) TearDownSuite(c *C) {
@@ -77,10 +79,12 @@ func (s *RepreproSuite) TestLockFailure(c *C) {
 	err := s.r.tryLock()
 	c.Assert(err, IsNil, Commentf("Unexpected error: %s", err))
 
-	c.Check(s.r.ListPackage("foo", nil), IsNil)
+	c.Check(s.r.ListPackage(deb.Unstable, nil), IsNil)
 	errMatch := "Could not lock repository .*: Locked by other process"
 	c.Check(s.r.AddDistribution("foo", deb.Amd64), ErrorMatches, errMatch)
-	c.Check(s.r.RemoveDistribution("foo", deb.Amd64), ErrorMatches, errMatch)
+	c.Check(s.r.RemoveDistribution(deb.Unstable, deb.Amd64), ErrorMatches, errMatch)
+	c.Assert(s.r.dists[deb.Unstable], NotNil)
+	c.Assert(s.r.dists[deb.Unstable][deb.Amd64], Equals, true)
 	b := &BuildResult{
 		Changes: &deb.ChangesFile{
 			Dist: "unstable",
@@ -99,4 +103,10 @@ func (s *RepreproSuite) TestReload(c *C) {
 	newRepo, err := NewReprepro(s.repoPath)
 	c.Check(err, IsNil)
 	c.Check(newRepo, DeepEquals, s.r)
+}
+
+func (s *RepreproSuite) TestCanAddSameArchitectureTwice(c *C) {
+	err := s.r.AddDistribution(deb.Unstable, deb.Amd64)
+	c.Assert(err, IsNil, Commentf("Initialization error %s", err))
+
 }

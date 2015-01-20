@@ -16,7 +16,7 @@ import (
 )
 
 type Reprepro struct {
-	dists map[deb.Codename][]deb.Architecture
+	dists map[deb.Codename]map[deb.Architecture]bool
 	lock  lockfile.Lockfile
 
 	basepath string
@@ -46,7 +46,7 @@ func (r *Reprepro) loadDistributions() error {
 		return err
 	}
 
-	r.dists = make(map[deb.Codename][]deb.Architecture)
+	r.dists = make(map[deb.Codename]map[deb.Architecture]bool)
 
 	l := deb.NewControlFileLexer(f)
 	newDist := deb.Codename("")
@@ -89,7 +89,10 @@ func (r *Reprepro) loadDistributions() error {
 		}
 
 		if len(newDist) != 0 && len(newArch) != 0 {
-			r.dists[newDist] = newArch
+			r.dists[newDist] = make(map[deb.Architecture]bool)
+			for _, a := range newArch {
+				r.dists[newDist][a] = true
+			}
 			newDist = ""
 			newArch = nil
 		}
@@ -117,7 +120,7 @@ func (r *Reprepro) writeDistributions() error {
 		fmt.Fprintf(f, "Description: Local ddesk repository\n")
 		fmt.Fprintf(f, "Components: main\n")
 		fmt.Fprintf(f, "Architectures:")
-		for _, a := range archs {
+		for a, _ := range archs {
 			fmt.Fprintf(f, " %s", a)
 		}
 		fmt.Fprintf(f, "\n\n")
@@ -210,36 +213,48 @@ func (r *Reprepro) ArchiveChanges(c *deb.ChangesFile, dir string) error {
 }
 
 func (r *Reprepro) AddDistribution(d deb.Codename, a deb.Architecture) error {
-	r.dists[d] = append(r.dists[d], a)
-	return r.writeDistributions()
+	saved, ok := r.dists[d]
+	if ok == false {
+		r.dists[d] = make(map[deb.Architecture]bool)
+	}
+	r.dists[d][a] = true
+	if err := r.writeDistributions(); err != nil {
+		if ok == false {
+			delete(r.dists, d)
+		} else {
+			r.dists[d] = saved
+		}
+		return err
+	}
+
+	cmd := exec.Command("reprepro", "export", string(d))
+	cmd.Dir = r.basepath
+	cmdOut, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Could not bootstrap distribution %s: %s\n%s", d, err, cmdOut)
+	}
+	return nil
 }
 
 func (r *Reprepro) RemoveDistribution(d deb.Codename, a deb.Architecture) error {
-	archs, ok := r.dists[d]
+	_, ok := r.dists[d]
 	if ok == false {
 		return fmt.Errorf("Distribution %s is not supported", d)
 	}
-	newArchs := []deb.Architecture{}
-	found := false
-	for _, aa := range archs {
-		if aa == a {
-			found = true
-			continue
-		}
-		newArchs = append(newArchs, aa)
-	}
+
+	_, found := r.dists[d][a]
 
 	if found == false {
 		return fmt.Errorf("Distribution %s does not support architecture %s", d, a)
 	}
+	delete(r.dists[d], a)
 
-	if len(newArchs) != 0 {
-		r.dists[d] = newArchs
-	} else {
-		delete(r.dists, d)
+	err := r.writeDistributions()
+	if err != nil {
+		r.dists[d][a] = true
+		return err
 	}
-
-	return r.writeDistributions()
+	return nil
 }
 
 func (r *Reprepro) unsafeListPackages(d deb.Codename) (map[deb.BinaryPackageRef]bool, error) {
