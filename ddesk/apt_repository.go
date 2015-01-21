@@ -1,18 +1,21 @@
 package main
 
 import (
+	"io"
 	"regexp"
 
-	"golang.org/x/crypto/openpgp/packet"
+	"golang.org/x/crypto/openpgp"
 
 	deb ".."
 )
 
-type AptRepositoryAccess struct {
-	Dists      []deb.Codename
-	Components []deb.Component
-	Address    string
-	SigningKey *packet.PublicKey
+type AptRepositoryId string
+
+type AptRepositoryAccess interface {
+	ID() AptRepositoryId
+	Components(deb.Codename) []deb.Component
+	AptURL() string
+	PublicKey() *openpgp.Entity
 }
 
 type AptRepository interface {
@@ -22,4 +25,18 @@ type AptRepository interface {
 	ListPackage(deb.Codename, *regexp.Regexp) []deb.BinaryPackageRef
 	RemovePackage(deb.Codename, deb.BinaryPackageRef) error
 	Access() AptRepositoryAccess
+}
+
+type PPARepositoryAccess struct {
+}
+
+func NewPPARepositoryAccess(ppaAddress string) (*PPARepositoryAccess, error) {
+	return nil, deb.NotYetImplemented()
+}
+
+type RemoteAptRepositoryAccess struct {
+}
+
+func NewRemoteAptRepositoryAccess(address string, r io.Reader) (*AptRepositoryAccess, error) {
+	return nil, deb.NotYetImplemented()
 }

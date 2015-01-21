@@ -1,4 +1,8 @@
-default : check all
+default : all check
+
+all: 
+	go build
+
 
 check:
 	go vet

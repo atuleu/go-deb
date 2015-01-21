@@ -525,37 +525,31 @@ fi
 	bindmounts := make([]string, 0, len(deps))
 
 	for _, dep := range deps {
-		found := false
-		for _, d := range dep.Dists {
-			if d == targetDist {
-				found = true
-				break
-			}
-		}
-		if found == false {
-			return nil, fmt.Errorf("Could not set dependency on apt repository %s, it provides %v but %s needed",
-				dep.Address, dep.Dists, targetDist)
+		comps := dep.Components(targetDist)
+		if len(comps) == 0 {
+			log.Printf("Skipping dependency %s as it does not support %s", dep.ID(), targetDist)
+			continue
 		}
 
-		if dep.SigningKey != nil {
+		if dep.PublicKey() != nil {
 			return nil, fmt.Errorf("Signed repository are not supported yet")
 		}
 
-		if strings.HasPrefix(dep.Address, "file:/") == true {
-			localpath := strings.TrimPrefix(dep.Address, "file:")
+		if strings.HasPrefix(dep.AptURL(), "file:/") == true {
+			localpath := strings.TrimPrefix(dep.AptURL(), "file:")
 			if _, err := os.Stat(path.Join(localpath, "dists")); err != nil {
 				if os.IsNotExist(err) == false {
 					return nil, err
 				} else {
-					log.Printf("Skipping dependency %s:  %s", dep.Address, err)
+					log.Printf("Skipping dependency %s:  %s", dep.ID(), err)
 					continue
 				}
 			}
 			bindmounts = append(bindmounts, localpath)
 		}
 
-		fmt.Fprintf(&content, "echo \"deb [trusted=yes] %s %s", dep.Address, targetDist)
-		for _, c := range dep.Components {
+		fmt.Fprintf(&content, "echo \"deb [trusted=yes] %s %s", dep.AptURL(), targetDist)
+		for _, c := range comps {
 			fmt.Fprintf(&content, " %s", c)
 		}
 		fmt.Fprintf(&content, "\" >> $listfile")

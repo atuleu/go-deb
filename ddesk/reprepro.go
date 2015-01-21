@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -350,13 +349,8 @@ func (r *Reprepro) Access() AptRepositoryAccess {
 	for d, _ := range r.dists {
 		dists = append(dists, d)
 	}
-	absPath, _ := filepath.Abs(r.basepath)
-	return AptRepositoryAccess{
-		Dists:      dists,
-		Components: []deb.Component{"main"},
-		Address:    fmt.Sprintf("file:%s", absPath),
-		SigningKey: nil,
-	}
+	//absPath, _ := filepath.Abs(r.basepath)
+	return nil
 }
 
 func init() {

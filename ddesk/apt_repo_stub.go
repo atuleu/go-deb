@@ -34,5 +34,5 @@ func (l *AptRepositoryStub) RemovePackage(deb.Codename, deb.BinaryPackageRef) er
 }
 
 func (l *AptRepositoryStub) Access() AptRepositoryAccess {
-	return AptRepositoryAccess{}
+	return nil
 }

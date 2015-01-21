@@ -12,6 +12,8 @@ import (
 	"path"
 	"strings"
 
+	"log"
+
 	"launchpad.net/go-xdg"
 
 	deb ".."
@@ -387,12 +389,14 @@ func (a *XdgArchiver) ArchiveBuildResult(b BuildResult) (*BuildResult, error) {
 	defer a.unlockOrPanic()
 
 	//we ensure that the _binaries.changes exists
+	log.Printf("Coucou")
 	changesPath := path.Join(b.BasePath, b.ChangesPath)
 	exists, err := a.fileExists(changesPath)
 	if err != nil {
 		return nil, err
 	}
 	if exists == false {
+		log.Printf("Coucou %v", b)
 		return nil, fmt.Errorf("Missing required file %s", changesPath)
 	}
 
