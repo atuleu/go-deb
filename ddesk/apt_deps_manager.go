@@ -25,7 +25,9 @@ type XdgAptDepsManager struct {
 }
 
 func NewXdgAptDepsManager() (*XdgAptDepsManager, error) {
-	res := &XdgAptDepsManager{}
+	res := &XdgAptDepsManager{
+		data: make(map[AptRepositoryID]*AptRepositoryAccess),
+	}
 	var err error
 	res.confpath, err = xdg.Data.Ensure("go-deb.ddesk/apt_deps/data.json")
 	if err != nil {
@@ -33,7 +35,7 @@ func NewXdgAptDepsManager() (*XdgAptDepsManager, error) {
 	}
 
 	res.confdir = path.Dir(res.confpath)
-	res.lock, err = lockfile.New(path.Join(res.confpath, "global.lock"))
+	res.lock, err = lockfile.New(path.Join(res.confdir, "global.lock"))
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +74,7 @@ func (m *XdgAptDepsManager) load() error {
 		return err
 	}
 	dec := json.NewDecoder(f)
-	err = dec.Decode(m.data)
+	err = dec.Decode(&m.data)
 	if err != nil && err != io.EOF {
 		return err
 	}
