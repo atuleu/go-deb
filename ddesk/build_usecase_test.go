@@ -20,20 +20,6 @@ type BuildUseCaseSuite struct {
 	distConfig      *UserDistSupportConfigStub
 }
 
-type AptDepsManagerStub struct{}
-
-func (a *AptDepsManagerStub) Store(*AptRepositoryAccess) error {
-	return nil
-}
-
-func (a *AptDepsManagerStub) Remove(AptRepositoryID) error {
-	return nil
-}
-
-func (a *AptDepsManagerStub) List() map[AptRepositoryID]*AptRepositoryAccess {
-	return nil
-}
-
 var _ = Suite(&BuildUseCaseSuite{})
 
 func Test(t *testing.T) { TestingT(t) }

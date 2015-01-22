@@ -13,14 +13,14 @@ import (
 )
 
 func (x *Interactor) CreatePPADependency(address string) (AptRepositoryID, error) {
+	_, ok := x.aptDeps.List()[AptRepositoryID(address)]
+	if ok == true {
+		return "", fmt.Errorf("Repository %s already exists", address)
+	}
+
 	access, err := NewPPArepositoryAccess(address)
 	if err != nil {
 		return "", err
-	}
-
-	_, ok := x.aptDeps.List()[access.ID]
-	if ok == true {
-		return "", fmt.Errorf("Repository %s already exists", access)
 	}
 
 	return access.ID, x.aptDeps.Store(access)
@@ -42,7 +42,7 @@ func (x *Interactor) CreateRemoteDependency(address string, keyReader io.Reader)
 	}
 
 	keys, err := openpgp.ReadArmoredKeyRing(keyReader)
-	if err != nil && err.Error() == "no armor data found" {
+	if err != nil && err.Error() == "openpgp: invalid argument: no armored data found" {
 		keys, err = openpgp.ReadKeyRing(keyReader)
 	}
 	if err != nil {
