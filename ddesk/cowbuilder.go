@@ -250,7 +250,7 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 }
 
 // returns an equivalent of .pbuilderrc run
-func (b *Cowbuilder) cowbuilderCommand(d deb.Codename, a deb.Architecture, deps []AptRepositoryAccess, command string, args ...string) (*exec.Cmd, error) {
+func (b *Cowbuilder) cowbuilderCommand(d deb.Codename, a deb.Architecture, deps []*AptRepositoryAccess, command string, args ...string) (*exec.Cmd, error) {
 
 	isUbuntu, err := b.isSupportedUbuntu(d)
 	if err != nil {
@@ -512,7 +512,7 @@ func (b *Cowbuilder) getSupportedArchitectures() {
 	}
 }
 
-func (b *Cowbuilder) setHooksForRepoDeps(targetDist deb.Codename, deps []AptRepositoryAccess) ([]string, error) {
+func (b *Cowbuilder) setHooksForRepoDeps(targetDist deb.Codename, deps []*AptRepositoryAccess) ([]string, error) {
 	var content bytes.Buffer
 	fmt.Fprintf(&content, `#!/bin/bash
 listfile=/etc/apt/sources.list.d/deps.list
@@ -525,31 +525,31 @@ fi
 	bindmounts := make([]string, 0, len(deps))
 
 	for _, dep := range deps {
-		comps := dep.Components(targetDist)
-		if len(comps) == 0 {
-			log.Printf("Skipping dependency %s as it does not support %s", dep.ID(), targetDist)
+		comps, ok := dep.Comps[targetDist]
+		if ok == false || len(comps) == 0 {
+			log.Printf("Skipping dependency %s as it does not support %s", dep.ID, targetDist)
 			continue
 		}
 
-		if dep.PublicKey() != nil {
+		if dep.PublicKey != nil {
 			return nil, fmt.Errorf("Signed repository are not supported yet")
 		}
 
-		if strings.HasPrefix(dep.AptURL(), "file:/") == true {
-			localpath := strings.TrimPrefix(dep.AptURL(), "file:")
+		if strings.HasPrefix(dep.Address, "file:/") == true {
+			localpath := strings.TrimPrefix(dep.Address, "file:")
 			if _, err := os.Stat(path.Join(localpath, "dists")); err != nil {
 				if os.IsNotExist(err) == false {
 					return nil, err
 				} else {
-					log.Printf("Skipping dependency %s:  %s", dep.ID(), err)
+					log.Printf("Skipping dependency %s:  %s", dep.ID, err)
 					continue
 				}
 			}
 			bindmounts = append(bindmounts, localpath)
 		}
 
-		fmt.Fprintf(&content, "echo \"deb [trusted=yes] %s %s", dep.AptURL(), targetDist)
-		for _, c := range comps {
+		fmt.Fprintf(&content, "echo \"deb [trusted=yes] %s %s", dep.Address, targetDist)
+		for c, _ := range comps {
 			fmt.Fprintf(&content, " %s", c)
 		}
 		fmt.Fprintf(&content, "\" >> $listfile")

@@ -11,11 +11,11 @@ import (
 
 type AptRepositoryId string
 
-type AptRepositoryAccess interface {
-	ID() AptRepositoryId
-	Components(deb.Codename) []deb.Component
-	AptURL() string
-	PublicKey() *openpgp.Entity
+type AptRepositoryAccess struct {
+	ID        AptRepositoryId
+	Comps     map[deb.Codename]map[deb.Component]bool
+	Address   string
+	PublicKey *openpgp.Entity
 }
 
 type AptRepository interface {
@@ -24,17 +24,11 @@ type AptRepository interface {
 	RemoveDistribution(deb.Codename, deb.Architecture) error
 	ListPackage(deb.Codename, *regexp.Regexp) []deb.BinaryPackageRef
 	RemovePackage(deb.Codename, deb.BinaryPackageRef) error
-	Access() AptRepositoryAccess
+	Access() *AptRepositoryAccess
 }
 
-type PPARepositoryAccess struct {
-}
-
-func NewPPARepositoryAccess(ppaAddress string) (*PPARepositoryAccess, error) {
+func NewPPARepositoryAccess(ppaAddress string, enabledDist []deb.Codename) (*AptRepositoryAccess, error) {
 	return nil, deb.NotYetImplemented()
-}
-
-type RemoteAptRepositoryAccess struct {
 }
 
 func NewRemoteAptRepositoryAccess(address string, r io.Reader) (*AptRepositoryAccess, error) {

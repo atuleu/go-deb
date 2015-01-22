@@ -8,7 +8,6 @@ import (
 )
 
 type Interactor struct {
-	depManager      AptDependencyManager
 	archiver        PackageArchiver
 	localRepository AptRepository
 	builder         DebianBuilder

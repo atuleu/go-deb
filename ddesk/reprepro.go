@@ -344,7 +344,7 @@ func (r *Reprepro) RemovePackage(d deb.Codename, p deb.BinaryPackageRef) error {
 	return r.unsafeRemovePackage(string(d), p.Name)
 }
 
-func (r *Reprepro) Access() AptRepositoryAccess {
+func (r *Reprepro) Access() *AptRepositoryAccess {
 	dists := make([]deb.Codename, 0, len(r.dists))
 	for d, _ := range r.dists {
 		dists = append(dists, d)

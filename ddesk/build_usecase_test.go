@@ -10,6 +10,7 @@ import (
 )
 
 type BuildUseCaseSuite struct {
+	h               TempHomer
 	x               Interactor
 	builder         *DebianBuilderStub
 	packageArchiver *PackageArchiverStub
@@ -33,6 +34,17 @@ func (s *BuildUseCaseSuite) TestBuildAutobuildSource(c *C) {
 	r, err := s.x.BuildAutobuildSource(AutobuildSourcePackage{}, nil)
 	c.Check(r, IsNil)
 	c.Check(err, ErrorMatches, ".* is not yet implemented")
+}
+
+func (s *BuildUseCaseSuite) SetUpSuite(c *C) {
+	s.h.OverrideEnv("XDG_DATA_HOME", "")
+	err := s.h.SetUp()
+	c.Assert(err, IsNil)
+}
+
+func (s *BuildUseCaseSuite) TearDownSuite(c *C) {
+	err := s.h.TearDown()
+	c.Assert(err, IsNil)
 }
 
 func (s *BuildUseCaseSuite) SetUpTest(c *C) {

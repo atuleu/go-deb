@@ -54,6 +54,12 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 	}
 	defer os.RemoveAll(dest)
 
+	//we initialize all dependencies
+	depsManager, err := NewXdgAptDependencyManager()
+	if err != nil {
+		return nil, err
+	}
+
 	//we copy dsc and source file there
 	dsc := a.Dsc
 	dsc.BasePath = dest
@@ -80,12 +86,16 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 		}
 	}
 
+	deps := []*AptRepositoryAccess{}
+	for _, dep := range depsManager.List() {
+		deps = append(deps, dep)
+	}
 	//we do the build
 	buildRes, err := x.builder.BuildPackage(BuildArguments{
 		SourcePackage: dsc,
 		Dist:          targetDist,
 		Archs:         archs,
-		Deps:          []AptRepositoryAccess{x.localRepository.Access()},
+		Deps:          append(deps, x.localRepository.Access()),
 		Dest:          dest,
 	}, buildOut)
 	var archErr error = nil

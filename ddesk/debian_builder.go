@@ -30,7 +30,7 @@ type BuildArguments struct {
 	SourcePackage deb.SourceControlFile
 	Dist          deb.Codename
 	Archs         []deb.Architecture
-	Deps          []AptRepositoryAccess
+	Deps          []*AptRepositoryAccess
 	Dest          string
 }
 
