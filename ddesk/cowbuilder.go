@@ -250,7 +250,7 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 }
 
 // returns an equivalent of .pbuilderrc run
-func (b *Cowbuilder) cowbuilderCommand(d deb.Codename, a deb.Architecture, deps []AptRepositoryAccess, command string, args ...string) (*exec.Cmd, error) {
+func (b *Cowbuilder) cowbuilderCommand(d deb.Codename, a deb.Architecture, deps []*AptRepositoryAccess, command string, args ...string) (*exec.Cmd, error) {
 
 	isUbuntu, err := b.isSupportedUbuntu(d)
 	if err != nil {
@@ -512,7 +512,7 @@ func (b *Cowbuilder) getSupportedArchitectures() {
 	}
 }
 
-func (b *Cowbuilder) setHooksForRepoDeps(targetDist deb.Codename, deps []AptRepositoryAccess) ([]string, error) {
+func (b *Cowbuilder) setHooksForRepoDeps(targetDist deb.Codename, deps []*AptRepositoryAccess) ([]string, error) {
 	var content bytes.Buffer
 	fmt.Fprintf(&content, `#!/bin/bash
 listfile=/etc/apt/sources.list.d/deps.list
@@ -525,16 +525,11 @@ fi
 	bindmounts := make([]string, 0, len(deps))
 
 	for _, dep := range deps {
-		found := false
-		for _, d := range dep.Dists {
-			if d == targetDist {
-				found = true
-				break
-			}
-		}
+		comps, found := dep.Components[targetDist]
 		if found == false {
-			return nil, fmt.Errorf("Could not set dependency on apt repository %s, it provides %v but %s needed",
-				dep.Address, dep.Dists, targetDist)
+			log.Printf("Could not set dependency on apt repository %s, as it does not provide %s",
+				dep, targetDist)
+			continue
 		}
 
 		if dep.SigningKey != nil {
@@ -555,7 +550,7 @@ fi
 		}
 
 		fmt.Fprintf(&content, "echo \"deb [trusted=yes] %s %s", dep.Address, targetDist)
-		for _, c := range dep.Components {
+		for _, c := range comps {
 			fmt.Fprintf(&content, " %s", c)
 		}
 		fmt.Fprintf(&content, "\" >> $listfile")

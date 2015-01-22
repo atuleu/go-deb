@@ -345,15 +345,15 @@ func (r *Reprepro) RemovePackage(d deb.Codename, p deb.BinaryPackageRef) error {
 	return r.unsafeRemovePackage(string(d), p.Name)
 }
 
-func (r *Reprepro) Access() AptRepositoryAccess {
-	dists := make([]deb.Codename, 0, len(r.dists))
+func (r *Reprepro) Access() *AptRepositoryAccess {
+	dists := make(map[deb.Codename][]deb.Component)
 	for d, _ := range r.dists {
-		dists = append(dists, d)
+		dists[d] = []deb.Component{"main"}
 	}
 	absPath, _ := filepath.Abs(r.basepath)
-	return AptRepositoryAccess{
-		Dists:      dists,
-		Components: []deb.Component{"main"},
+	return &AptRepositoryAccess{
+		ID:         AptRepositoryID(fmt.Sprintf("local:%s", absPath)),
+		Components: dists,
 		Address:    fmt.Sprintf("file:%s", absPath),
 		SigningKey: nil,
 	}

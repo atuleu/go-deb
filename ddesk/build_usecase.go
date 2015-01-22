@@ -85,7 +85,7 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 		SourcePackage: dsc,
 		Dist:          targetDist,
 		Archs:         archs,
-		Deps:          []AptRepositoryAccess{x.localRepository.Access()},
+		Deps:          []*AptRepositoryAccess{x.localRepository.Access()},
 		Dest:          dest,
 	}, buildOut)
 	var archErr error = nil

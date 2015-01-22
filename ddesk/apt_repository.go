@@ -8,11 +8,34 @@ import (
 	deb ".."
 )
 
+type AptRepositoryID string
+
 type AptRepositoryAccess struct {
-	Dists      []deb.Codename
-	Components []deb.Component
+	ID         AptRepositoryID
+	Components map[deb.Codename][]deb.Component
 	Address    string
 	SigningKey *packet.PublicKey
+}
+
+func (a *AptRepositoryAccess) CleanUp() {
+	for d, comps := range a.Components {
+		set := make(map[deb.Component]bool)
+		for _, c := range comps {
+			set[c] = true
+		}
+		if len(set) == 0 {
+			delete(a.Components, d)
+			continue
+		}
+		a.Components[d] = make([]deb.Component, 0, len(set))
+		for c, _ := range set {
+			a.Components[d] = append(a.Components[d], c)
+		}
+	}
+}
+
+func (a *AptRepositoryAccess) String() string {
+	return string(a.ID)
 }
 
 type AptRepository interface {
@@ -21,5 +44,5 @@ type AptRepository interface {
 	RemoveDistribution(deb.Codename, deb.Architecture) error
 	ListPackage(deb.Codename, *regexp.Regexp) []deb.BinaryPackageRef
 	RemovePackage(deb.Codename, deb.BinaryPackageRef) error
-	Access() AptRepositoryAccess
+	Access() *AptRepositoryAccess
 }
