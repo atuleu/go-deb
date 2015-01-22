@@ -80,12 +80,19 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 		}
 	}
 
+	//we get all apt dependency
+	deps := make([]*AptRepositoryAccess, 0, len(x.aptDeps.List())+1)
+	for _, dep := range x.aptDeps.List() {
+		deps = append(deps, dep)
+	}
+	deps = append(deps, x.localRepository.Access())
+
 	//we do the build
 	buildRes, err := x.builder.BuildPackage(BuildArguments{
 		SourcePackage: dsc,
 		Dist:          targetDist,
 		Archs:         archs,
-		Deps:          []*AptRepositoryAccess{x.localRepository.Access()},
+		Deps:          deps,
 		Dest:          dest,
 	}, buildOut)
 	var archErr error = nil
