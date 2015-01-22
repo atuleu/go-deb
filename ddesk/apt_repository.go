@@ -3,18 +3,16 @@ package main
 import (
 	"regexp"
 
-	"golang.org/x/crypto/openpgp/packet"
-
 	deb ".."
 )
 
 type AptRepositoryID string
 
 type AptRepositoryAccess struct {
-	ID         AptRepositoryID
-	Components map[deb.Codename][]deb.Component
-	Address    string
-	SigningKey *packet.PublicKey
+	ID               AptRepositoryID
+	Components       map[deb.Codename][]deb.Component
+	Address          string
+	ArmoredPublicKey []byte
 }
 
 func (a *AptRepositoryAccess) CleanUp() {

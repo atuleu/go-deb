@@ -352,10 +352,10 @@ func (r *Reprepro) Access() *AptRepositoryAccess {
 	}
 	absPath, _ := filepath.Abs(r.basepath)
 	return &AptRepositoryAccess{
-		ID:         AptRepositoryID(fmt.Sprintf("local:%s", absPath)),
-		Components: dists,
-		Address:    fmt.Sprintf("file:%s", absPath),
-		SigningKey: nil,
+		ID:               AptRepositoryID(fmt.Sprintf("local:%s", absPath)),
+		Components:       dists,
+		Address:          fmt.Sprintf("file:%s", absPath),
+		ArmoredPublicKey: nil,
 	}
 }
 

@@ -532,8 +532,11 @@ fi
 			continue
 		}
 
-		if dep.SigningKey != nil {
-			return nil, fmt.Errorf("Signed repository are not supported yet")
+		forceTrusted := ""
+		if dep.ArmoredPublicKey == nil {
+			forceTrusted = "[trusted=yes] "
+		} else {
+			fmt.Fprintf(&content, "echo \"%s\" | apt-key add -\n", dep.ArmoredPublicKey)
 		}
 
 		if strings.HasPrefix(dep.Address, "file:/") == true {
@@ -547,15 +550,17 @@ fi
 				}
 			}
 			bindmounts = append(bindmounts, localpath)
+
 		}
 
-		fmt.Fprintf(&content, "echo \"deb [trusted=yes] %s %s", dep.Address, targetDist)
+		fmt.Fprintf(&content, "echo \"deb %s%s %s", forceTrusted, dep.Address, targetDist)
+
 		for _, c := range comps {
 			fmt.Fprintf(&content, " %s", c)
 		}
-		fmt.Fprintf(&content, "\" >> $listfile")
+		fmt.Fprintf(&content, "\" >> $listfile\n")
 	}
-	fmt.Fprintf(&content, "\napt-get update\n")
+	fmt.Fprintf(&content, "\n\napt-get update\n")
 	f, err := os.Create(path.Join(b.hookspath, "D01_apt_dep.sh"))
 	if err != nil {
 		return bindmounts, err
