@@ -8,6 +8,7 @@ import (
 )
 
 type Interactor struct {
+	aptDeps         AptDepsManager
 	archiver        PackageArchiver
 	localRepository AptRepository
 	builder         DebianBuilder
@@ -50,6 +51,11 @@ func NewInteractor(o *Options) (*Interactor, error) {
 	}
 
 	res.archiver, err = NewXdgArchiver(res.auth)
+	if err != nil {
+		return nil, err
+	}
+
+	res.aptDeps, err = NewXdgAptDepsManager()
 	if err != nil {
 		return nil, err
 	}

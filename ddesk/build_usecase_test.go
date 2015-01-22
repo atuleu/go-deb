@@ -11,12 +11,27 @@ import (
 
 type BuildUseCaseSuite struct {
 	x               Interactor
+	aptDeps         *AptDepsManagerStub
 	builder         *DebianBuilderStub
 	packageArchiver *PackageArchiverStub
 	localApt        *AptRepositoryStub
 	history         *HistoryStub
 	dsc             deb.SourceControlFile
 	distConfig      *UserDistSupportConfigStub
+}
+
+type AptDepsManagerStub struct{}
+
+func (a *AptDepsManagerStub) Store(*AptRepositoryAccess) error {
+	return nil
+}
+
+func (a *AptDepsManagerStub) Remove(AptRepositoryID) error {
+	return nil
+}
+
+func (a *AptDepsManagerStub) List() map[AptRepositoryID]*AptRepositoryAccess {
+	return nil
 }
 
 var _ = Suite(&BuildUseCaseSuite{})
@@ -79,12 +94,14 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 			"unstable": map[deb.Architecture]bool{deb.Amd64: true},
 		},
 	}
+	s.aptDeps = &AptDepsManagerStub{}
 
 	s.x.history = s.history
 	s.x.builder = s.builder
 	s.x.archiver = s.packageArchiver
 	s.x.localRepository = s.localApt
 	s.x.userDistConfig = s.distConfig
+	s.x.aptDeps = s.aptDeps
 }
 
 func (s *BuildUseCaseSuite) TearDownTest(c *C) {
