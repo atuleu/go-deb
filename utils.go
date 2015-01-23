@@ -5,8 +5,8 @@ import (
 	"runtime"
 )
 
-// Returns a nice error that the current method is not yet
-// implemented. Is useful in TestDrivenDevelopment
+// NotYetImplemented returns a nice error that the current method is
+// not yet implemented. Is useful for Test Driven Development
 func NotYetImplemented() error {
 	//try to get parent
 	pc, file, line, ok := runtime.Caller(1)

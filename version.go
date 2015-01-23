@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// Represents a version in the debian package management system. All
-// informationa are based on the Debian Policy Manual
+// Version represents a version in the debian package management
+// system. All informationa are based on the Debian Policy Manual
 type Version struct {
 	//It is a single small unsigned integer, default to zero
 	Epoch uint32
@@ -23,6 +23,8 @@ type Version struct {
 	DebianRevision string
 }
 
+// ParseVersion parse a string and return a Version if the string is
+// correctly formatted or an error.
 func ParseVersion(s string) (*Version, error) {
 	epoch := 0
 	epochMatches := epochRx.FindStringSubmatch(s)

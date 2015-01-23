@@ -8,8 +8,10 @@ import (
 	"regexp"
 )
 
-// Represents a .dsc file content Only Mandatory according to the
-// Debian Policy Manual file are represented.
+// SourceControlFile represents a .dsc file content.
+//
+// Only Mandatory according to the Debian Policy Manual file are
+// represented.
 type SourceControlFile struct {
 	// need to repeat here for parsing
 	Source string  `field:"Source"`
@@ -34,14 +36,19 @@ type SourceControlFile struct {
 	Sha256Files []FileReference `field:"ChecksumsSha256"`
 }
 
+// Filename is the expected name a .dsc file should have
 func (dsc *SourceControlFile) Filename() string {
 	return fmt.Sprintf("%s_%s.dsc", dsc.Identifier.Source, dsc.Identifier.Ver)
 }
 
+// ChangesFilename is the expected name a .changes file should have
+// for a source upload only.
 func (dsc *SourceControlFile) ChangesFilename() string {
 	return fmt.Sprintf("%s_%s_source.changes", dsc.Identifier.Source, dsc.Identifier.Ver)
 }
 
+// IsDscFileName checks if the given file basename is a filename
+// expected for a .dsc
 func IsDscFileName(p string) error {
 	rx := regexp.MustCompile(`^(.*)_(.*)\.dsc$`)
 	p = path.Base(p)
@@ -53,6 +60,8 @@ func IsDscFileName(p string) error {
 	return err
 }
 
+// ParseDsc parses the content of a reader and return its content or
+// an error.
 func ParseDsc(r io.Reader) (*SourceControlFile, error) {
 	p := controlFileParser{
 		l:        NewControlFileLexer(r),

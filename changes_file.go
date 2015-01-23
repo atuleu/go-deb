@@ -9,16 +9,20 @@ import (
 	"time"
 )
 
+// ChangesFileRef is the designation of an actual .changes debian file.
 type ChangesFileRef struct {
 	Identifier SourcePackageRef
 	Suffix     string
 }
 
-// Represents a .changes file content
+// ChangesFile represents a .changes file actual content.
+//
+// .changes are use to process upload of package to archive. They
+// represent wwanted modification to a distribution.
 type ChangesFile struct {
+	//The assiociated ChangesFileRef
 	Ref ChangesFileRef
 
-	//The format of the change file itself
 	Source     string
 	Ver        Version `field:"Version"`
 	Format     Version
@@ -29,19 +33,22 @@ type ChangesFile struct {
 	Maintainer *mail.Address
 
 	Description string
-	Changes     string
+
+	Changes string
 
 	Md5Files    []FileReference `field:"Files"`
 	Sha1Files   []FileReference `field:"ChecksumsSha1"`
 	Sha256Files []FileReference `field:"ChecksumsSha256"`
 }
 
+// Filename returns the name a .changes file is expected to have
 func (c *ChangesFileRef) Filename() string {
 	return fmt.Sprintf("%s_%s.changes", c.Identifier, c.Suffix)
 }
 
 var debFileRx = regexp.MustCompile(`^(.*)_(.*)_(.*).(deb|udeb)$`)
 
+// BinaryPackages returns the list of BinaryPackageRef of a .changes file
 func (c *ChangesFile) BinaryPackages() ([]BinaryPackageRef, error) {
 	res := make([]BinaryPackageRef, 0, cap(c.Md5Files))
 	for _, f := range c.Md5Files {
@@ -85,7 +92,7 @@ var changesParseFunctions = map[string]controlFieldParser{
 	"Maintainer":       parseMaintainer,
 }
 
-//Parses an unsigned .changes file
+//ParseChangeFile parses a .changes file.
 func ParseChangeFile(r io.Reader) (*ChangesFile, error) {
 	p := controlFileParser{
 		l:        NewControlFileLexer(r),

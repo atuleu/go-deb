@@ -13,8 +13,11 @@ import (
 	"time"
 )
 
+// ControlField represents a field in a debian control file.
 type ControlField struct {
+	// The name of the ControlField
 	Name string
+	//The data of the field, line by line.
 	Data []string
 }
 
@@ -32,10 +35,14 @@ type ControlFileLexer struct {
 	curField ControlField
 }
 
+// IsNewParagraph returns true if the field represents a new paragraph
+// in the control file
 func IsNewParagraph(c ControlField) bool {
 	return c.Name == "" && c.Data == nil
 }
 
+// NewControlFileLexer creates a ControlFileLexer for a control file
+// beeing read by r.
 func NewControlFileLexer(r io.Reader) *ControlFileLexer {
 	return &ControlFileLexer{
 		r:      bufio.NewReader(r),
@@ -45,6 +52,8 @@ func NewControlFileLexer(r io.Reader) *ControlFileLexer {
 	}
 }
 
+//Next returns the next ControlField from the control file being
+//lexed.
 func (l *ControlFileLexer) Next() (ControlField, error) {
 	for {
 		select {
@@ -94,12 +103,11 @@ func lexEmptyLine(l *ControlFileLexer) lActionFn {
 
 	if nextChar[0] != '\n' {
 		return lexNewField
-	} else {
-		if _, err = l.r.ReadByte(); err != nil {
-			return l.error(err)
-		}
-		return lexNewParagraph
 	}
+	if _, err = l.r.ReadByte(); err != nil {
+		return l.error(err)
+	}
+	return lexNewParagraph
 }
 
 func lexNewParagraph(l *ControlFileLexer) lActionFn {
@@ -206,7 +214,7 @@ func getFieldIDFromTag(v interface{}, tag string) (int, error) {
 		}
 	}
 	res := -1
-	var err error = nil
+	var err error
 	if resTag == -1 && resName == -1 {
 		err = fmt.Errorf(`Could not find field in %v with tag field:"%s"`, vType, tag)
 	}
@@ -485,7 +493,7 @@ func (p *controlFileParser) parse(v interface{}) error {
 		}
 	}
 
-	missing := make([]string, 0)
+	var missing []string
 	for _, fName := range p.required {
 		if _, ok := parsedField[fName]; ok == false {
 			missing = append(missing, fName)
