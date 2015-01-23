@@ -393,7 +393,7 @@ func (a *XdgArchiver) ArchiveBuildResult(b BuildResult) (*BuildResult, error) {
 		return nil, err
 	}
 	if exists == false {
-		return nil, fmt.Errorf("Missing required file %s", changesPath)
+		return nil, fmt.Errorf("Missing required file `%s'", changesPath)
 	}
 
 	destPath, err := a.binaryStorePath(b.Changes.Ref.Identifier)

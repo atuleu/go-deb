@@ -215,7 +215,6 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 	if len(changesFiles) == 0 {
 		return nil, fmt.Errorf("No architecture where build!")
 	}
-
 	res.ChangesPath = path.Base(changesFiles[0])
 	var suffix = string(lastBuildArch)
 	if len(changesFiles) > 1 {
@@ -227,7 +226,7 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 		cmd.Stderr = writer
 		fmt.Fprintf(writer, "--- Execute:%v\n--- Env:%v\n", cmd.Args, cmd.Env)
 		err := cmd.Run()
-		if err == nil {
+		if err != nil {
 			return nil, err
 		}
 		res.ChangesPath = fmt.Sprintf("%s_multi.changes", a.SourcePackage.Identifier)
