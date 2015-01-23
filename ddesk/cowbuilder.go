@@ -110,6 +110,21 @@ func (b *Cowbuilder) maskedEnviron() []string {
 	return res
 }
 
+type safePipeProcessWriter struct {
+	w   io.Writer
+	cmd *exec.Cmd
+}
+
+func (w *safePipeProcessWriter) Write(b []byte) (int, error) {
+	n, err := w.w.Write(b)
+	if err != nil &&
+		err.Error() == "write unix @: broken pipe" &&
+		w.cmd.Process != nil {
+		w.cmd.Process.Kill()
+	}
+	return n, err
+}
+
 // BuildPackage builds a deb.SourcePackageRef package. if an io.Writer
 // is passed, all the current output of cowbuilder will be copied to
 // it.
@@ -190,8 +205,12 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 		}
 
 		cmd.Stdin = nil
-		cmd.Stderr = writer
-		cmd.Stdout = writer
+		safeWriter := &safePipeProcessWriter{
+			w:   writer,
+			cmd: cmd,
+		}
+		cmd.Stderr = safeWriter
+		cmd.Stdout = safeWriter
 		fmt.Fprintf(writer, "--- Execute:%v\n--- Env:%v\n", cmd.Args, cmd.Env)
 		err = cmd.Run()
 		if err != nil {
