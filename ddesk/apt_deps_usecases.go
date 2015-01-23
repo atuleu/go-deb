@@ -12,6 +12,11 @@ import (
 	deb ".."
 )
 
+// CreatePPADependency stores a new AptRepositoryAccess in the
+// AptDepsManager from a PPA designator (
+// i.e. 'ppa:<owner>/<ppa-name>' ). It returns the the AptRepositoryID
+// used by the AptDepsManager, to let the user edit the
+// AptRepositoryAccess further with EditRepository.
 func (x *Interactor) CreatePPADependency(address string) (AptRepositoryID, error) {
 	_, ok := x.aptDeps.List()[AptRepositoryID(address)]
 	if ok == true {
@@ -26,6 +31,13 @@ func (x *Interactor) CreatePPADependency(address string) (AptRepositoryID, error
 	return access.ID, x.aptDeps.Store(access)
 }
 
+// CreateRemoteDependency stores a new AptRepositoryAccess in the
+// AptDepsManager from an address and associated PGP Publick Key used
+// to sign this repository. address should start by a protocol like
+// http:// https:// or file:// . The PGP Key data (either binary or
+// ASCII armored) should be read from keyReader. It returns the the
+// AptRepositoryID used by the AptDepsManager, to let the user edit
+// the AptRepositoryAccess further with EditRepository.
 func (x *Interactor) CreateRemoteDependency(address string, keyReader io.Reader) (AptRepositoryID, error) {
 	access := &AptRepositoryAccess{
 		Address: address,
@@ -69,6 +81,10 @@ func (x *Interactor) CreateRemoteDependency(address string, keyReader io.Reader)
 	return access.ID, x.aptDeps.Store(access)
 }
 
+// EditRepository modifies a stored AptRepositoryAccess in the
+// AptDepManager to add or remove distribution and component.  If a
+// modified AptRepositoryAccess is left without any listed
+// distribution or codename, it will be silently removed.
 func (x *Interactor) EditRepository(id AptRepositoryID, toAdd, toRemove map[deb.Codename][]deb.Component) error {
 	access, ok := x.aptDeps.List()[id]
 	if ok == false {
@@ -106,7 +122,7 @@ func (x *Interactor) EditRepository(id AptRepositoryID, toAdd, toRemove map[deb.
 			continue
 		}
 
-		for c, _ := range compSet {
+		for c := range compSet {
 			access.Components[d] = append(access.Components[d], c)
 		}
 	}
@@ -124,7 +140,7 @@ func (x *Interactor) EditRepository(id AptRepositoryID, toAdd, toRemove map[deb.
 			continue
 		}
 		access.Components[d] = make([]deb.Component, 0, len(compSet))
-		for c, _ := range compSet {
+		for c := range compSet {
 			access.Components[d] = append(access.Components[d], c)
 		}
 	}
@@ -136,15 +152,20 @@ func (x *Interactor) EditRepository(id AptRepositoryID, toAdd, toRemove map[deb.
 	return x.aptDeps.Store(access)
 }
 
+// RemoveDependency removes a previously stored AptRepositoryAccess
 func (x *Interactor) RemoveDependency(id AptRepositoryID) error {
 	return x.aptDeps.Remove(id)
 }
 
+// DependencyItem is the data returned for AptRepositoryAccess
+// listing.
 type DependencyItem struct {
 	Components map[deb.Codename][]deb.Component
 	KeyID      string
 }
 
+// ListDependencies returns the current AptRepositoryAccess
+// persistently stored on the system.
 func (x *Interactor) ListDependencies() map[AptRepositoryID]DependencyItem {
 	res := make(map[AptRepositoryID]DependencyItem)
 	for id, access := range x.aptDeps.List() {

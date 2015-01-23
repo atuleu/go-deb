@@ -46,7 +46,7 @@ type DistManagementUseCaseSuite struct {
 	x          *Interactor
 	builder    *DebianBuilderStub
 	distConfig *UserDistSupportConfigStub
-	repo       *AptRepositoryStub
+	repo       *aptRepositoryStub
 }
 
 var _ = Suite(&DistManagementUseCaseSuite{})
@@ -58,7 +58,7 @@ func (s *DistManagementUseCaseSuite) SetUpSuite(c *C) {
 	s.distConfig = &UserDistSupportConfigStub{
 		supported: make(map[deb.Codename]map[deb.Architecture]bool),
 	}
-	s.repo = &AptRepositoryStub{}
+	s.repo = &aptRepositoryStub{}
 
 	s.x = &Interactor{
 		builder:         s.builder,

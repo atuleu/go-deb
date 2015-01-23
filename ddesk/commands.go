@@ -8,12 +8,14 @@ import (
 	deb ".."
 )
 
+// ServeBuilderCommand is a CLI command that will start a RpcBuilderServer
 type ServeBuilderCommand struct {
 	BasePath string `long:"basepath" short:"b" description:"basepath for the builder to run" default:"/var/lib/go-deb.ddesk"`
 	Socket   string `long:"socket" short:"s" description:"socket relative to basepath" default:"builder.sock"`
 	Type     string `long:"type" short:"t" description:"type of the builder" default:"cowbuilder"`
 }
 
+// Execute implements command
 func (x *ServeBuilderCommand) Execute(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("take no arguments")
@@ -23,7 +25,7 @@ func (x *ServeBuilderCommand) Execute(args []string) error {
 		return fmt.Errorf("Only --type=cowbuilder is supported")
 	}
 
-	// WRANING : do not create an intercator here. We could mess up
+	// WARNING : do not create an intercator here. We could mess up
 	// with user settings. we should just wrap a builder with a RpcBuilder.
 
 	b, err := NewCowbuilder(x.BasePath)
@@ -45,11 +47,14 @@ func (x *ServeBuilderCommand) Execute(args []string) error {
 	return nil
 }
 
+// InitDistributionCommand is a CLI command that will init a
+// distribution for the current builder.
 type InitDistributionCommand struct {
 	Dist string `long:"dist" short:"D" description:"Distribution to initilaize" required:"true"`
 	Arch string `long:"arch" short:"A" description:"Architecture to initialize" required:"true"`
 }
 
+// Execute implements command
 func (x *InitDistributionCommand) Execute(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("take no arguments")
@@ -71,12 +76,14 @@ func (x *InitDistributionCommand) Execute(args []string) error {
 
 }
 
+// RemoveDistributionCommand is a CLI command that removes a distribution support
 type RemoveDistributionCommand struct {
 	Dist        string `long:"dist" short:"D" description:"Distribution to initilaize" required:"true"`
 	Arch        string `long:"arch" short:"A" description:"Architecture to initialize" required:"true"`
 	RemoveCache bool   `long:"remove-cache" description:"Remove cached data by the builder"`
 }
 
+// Execute implements command
 func (x *RemoveDistributionCommand) Execute(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("take no arguments")
@@ -99,8 +106,11 @@ func (x *RemoveDistributionCommand) Execute(args []string) error {
 
 }
 
+// ListDistributionCommand is a CLI command that list the currently
+// supported/enabled distributions
 type ListDistributionCommand struct{}
 
+// Execute implements command
 func (x *ListDistributionCommand) Execute(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("take no arguments")
@@ -134,11 +144,13 @@ func (x *ListDistributionCommand) Execute(args []string) error {
 
 }
 
+// UpdateDistCommand is updating a distribution in the builder
 type UpdateDistCommand struct {
 	Dist string `long:"dist" short:"D" description:"Distribution to initilaize" required:"true"`
 	Arch string `long:"arch" short:"A" description:"Architecture to initialize" required:"true"`
 }
 
+// Execute implements command
 func (x *UpdateDistCommand) Execute(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("update-dist takes no arguments")
@@ -153,9 +165,12 @@ func (x *UpdateDistCommand) Execute(args []string) error {
 		os.Stdout)
 }
 
+// BuildCommand is a CLI command that triggers a binary build of a
+// deb.SourcePackage.
 type BuildCommand struct {
 }
 
+// Execute implements command
 func (x *BuildCommand) Execute(args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("build takes exactly one argument, the .dsc to build")
@@ -196,8 +211,11 @@ func (x *BuildCommand) Execute(args []string) error {
 	return nil
 }
 
+// InitInstallCommand is a CLI command that pre-configure ddesk on the
+// current system.
 type InitInstallCommand struct{}
 
+// Execute implements command
 func (x *InitInstallCommand) Execute(args []string) error {
 	if len(args) != 0 {
 		return fmt.Errorf("install takes only one argument")

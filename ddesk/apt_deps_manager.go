@@ -11,12 +11,16 @@ import (
 	"launchpad.net/go-xdg"
 )
 
+// AptDepsManager is managing apt repository dependency in a
+// persistent manner.
 type AptDepsManager interface {
 	Store(*AptRepositoryAccess) error
 	Remove(AptRepositoryID) error
 	List() map[AptRepositoryID]*AptRepositoryAccess
 }
 
+// XdgAptDepsManager implements AptDepsManager by storing the
+// dependencies in the current user XDG_DATA_DIR
 type XdgAptDepsManager struct {
 	lock              lockfile.Lockfile
 	confdir, confpath string
@@ -24,6 +28,8 @@ type XdgAptDepsManager struct {
 	data map[AptRepositoryID]*AptRepositoryAccess
 }
 
+// NewXdgAptDepsManager restores an AptDepsManager from an user
+// XDG_DATA_DIR
 func NewXdgAptDepsManager() (*XdgAptDepsManager, error) {
 	res := &XdgAptDepsManager{
 		data: make(map[AptRepositoryID]*AptRepositoryAccess),
@@ -101,6 +107,9 @@ func (m *XdgAptDepsManager) save() error {
 	return nil
 }
 
+// Store is saving to the filesystem the given AptRepositoryAccess. It
+// returns an error on any failure. The actual state of the object
+// will not be modified on failure.
 func (m *XdgAptDepsManager) Store(a *AptRepositoryAccess) error {
 	if a == nil {
 		return nil
@@ -119,6 +128,9 @@ func (m *XdgAptDepsManager) Store(a *AptRepositoryAccess) error {
 	return err
 }
 
+// Remove is removing from the persistent state the given
+// AptRepositoryAccess. If it returns any error the in memory state
+// will be left unchanged.
 func (m *XdgAptDepsManager) Remove(id AptRepositoryID) error {
 	saved, ok := m.data[id]
 	if ok == false {
@@ -133,6 +145,8 @@ func (m *XdgAptDepsManager) Remove(id AptRepositoryID) error {
 	return err
 }
 
+// List returns the current in-memory state of the list of apt
+// repository dependencies.
 func (m *XdgAptDepsManager) List() map[AptRepositoryID]*AptRepositoryAccess {
 	return m.data
 }

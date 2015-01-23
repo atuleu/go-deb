@@ -9,12 +9,15 @@ import (
 	deb ".."
 )
 
+// AddAptDependencyCommand is a CLI command that add or modifies an
+// apt repository depenendency
 type AddAptDependencyCommand struct {
 	Dists   []string `short:"D" long:"dist" description:"codename of distribution to add" required:"true"`
 	Comps   []string `short:"C" long:"comp" description:"component of distribution to add"`
 	KeyFile string   `short:"K" long:"key" description:"PGP Public key file for non PPA repository"`
 }
 
+// Execute implements the command.
 func (x *AddAptDependencyCommand) Execute(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("Missing address for creating repository")
@@ -71,11 +74,14 @@ func (x *AddAptDependencyCommand) Execute(args []string) error {
 	return nil
 }
 
+// RemoveAptDependencyCommand is a CLI command that edit/removes an
+// apt repository dependency.
 type RemoveAptDependencyCommand struct {
 	Dists []string `short:"D" long:"dist" description:"codename of distribution to remove"`
 	Comps []string `short:"C" long:"comp" description:"component of distribution to remove"`
 }
 
+// Execute implements the command.
 func (x *RemoveAptDependencyCommand) Execute(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("Missing repository identifier(s)")
@@ -105,7 +111,7 @@ func (x *RemoveAptDependencyCommand) Execute(args []string) error {
 		toRemove := make(map[deb.Codename][]deb.Component)
 		var dists []deb.Codename
 		if len(x.Dists) == 0 {
-			for d, _ := range data.Components {
+			for d := range data.Components {
 				dists = append(dists, d)
 			}
 		} else {
@@ -138,9 +144,14 @@ func (x *RemoveAptDependencyCommand) Execute(args []string) error {
 	return nil
 }
 
+// ListAptDependencyCommand is CLI command that list the current apt
+// repository dependencies.
+//
+// It will print all dependencies on os.Stdout.
 type ListAptDependencyCommand struct {
 }
 
+// Execute implements the command.
 func (x *ListAptDependencyCommand) Execute(args []string) error {
 	if len(args) != 0 {
 		return fmt.Errorf("list-dependencies does not take any arguments")

@@ -17,6 +17,9 @@ import (
 	"github.com/nightlyone/lockfile"
 )
 
+// Cowbuilder is a DebianBuilder based on the cowbuilder utility. As
+// it put the entire system on a minimal chroot it works only in
+// debian-based system and needs root priviliges.
 type Cowbuilder struct {
 	basepath  string
 	imagepath string
@@ -33,6 +36,8 @@ type Cowbuilder struct {
 	semaphore   chan bool
 }
 
+// NewCowbuilder initialize a new Cowbuilder with chroot locaed in
+// basepath.
 func NewCowbuilder(basepath string) (*Cowbuilder, error) {
 	res := &Cowbuilder{
 		basepath: basepath,
@@ -94,7 +99,7 @@ func NewCowbuilder(basepath string) (*Cowbuilder, error) {
 }
 
 func (b *Cowbuilder) maskedEnviron() []string {
-	var res []string = nil
+	var res []string
 	for _, key := range b.keepEnv {
 		value := os.Getenv(key)
 		if len(value) == 0 {
@@ -105,6 +110,9 @@ func (b *Cowbuilder) maskedEnviron() []string {
 	return res
 }
 
+// BuildPackage builds a deb.SourcePackageRef package. if an io.Writer
+// is passed, all the current output of cowbuilder will be copied to
+// it.
 func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildResult, error) {
 	b.acquire()
 	defer b.release()
@@ -209,7 +217,7 @@ func (b *Cowbuilder) BuildPackage(a BuildArguments, output io.Writer) (*BuildRes
 	}
 
 	res.ChangesPath = path.Base(changesFiles[0])
-	var suffix string = string(lastBuildArch)
+	var suffix = string(lastBuildArch)
 	if len(changesFiles) > 1 {
 		// in that case we make a multi-arch upload file
 		cmd := exec.Command("mergechanges", changesFiles...)
@@ -347,6 +355,10 @@ func (b *Cowbuilder) isSupportedUbuntu(d deb.Codename) (bool, error) {
 	return false, fmt.Errorf("%s is not supported by this builder", d)
 }
 
+// InitDistribution is initializing a distribution with the given
+// architecture for the builder. Since a copy-on-write chroot is
+// initialized with a bare default system, the output of the commmand
+// is synchronously copied to the given output.
 func (b *Cowbuilder) InitDistribution(d deb.Codename, a deb.Architecture, output io.Writer) error {
 	b.acquire()
 	defer b.release()
@@ -379,6 +391,8 @@ func (b *Cowbuilder) InitDistribution(d deb.Codename, a deb.Architecture, output
 	return cmd.Run()
 }
 
+// RemoveDistribution is removing a distribution support from the
+// builder.
 func (b *Cowbuilder) RemoveDistribution(d deb.Codename, a deb.Architecture) error {
 	b.acquire()
 	defer b.release()
@@ -391,6 +405,8 @@ func (b *Cowbuilder) RemoveDistribution(d deb.Codename, a deb.Architecture) erro
 	return os.RemoveAll(imagePath)
 }
 
+// UpdateDistribution is updating the chroot for the given
+// distribution.
 func (b *Cowbuilder) UpdateDistribution(d deb.Codename, a deb.Architecture, output io.Writer) error {
 	b.acquire()
 	defer b.release()
@@ -415,17 +431,19 @@ func (b *Cowbuilder) UpdateDistribution(d deb.Codename, a deb.Architecture, outp
 	return cmd.Run()
 }
 
+// AvailableDistributions returns
 func (b *Cowbuilder) AvailableDistributions() []deb.Codename {
 	b.acquire()
 	defer b.release()
 
 	res := []deb.Codename{}
-	for d, _ := range b.getAllImages() {
+	for d := range b.getAllImages() {
 		res = append(res, d)
 	}
 	return res
 }
 
+// AvailableArchitectures returns
 func (b *Cowbuilder) AvailableArchitectures(d deb.Codename) ArchitectureList {
 	b.acquire()
 	defer b.release()
@@ -544,13 +562,11 @@ fi
 			if _, err := os.Stat(path.Join(localpath, "dists")); err != nil {
 				if os.IsNotExist(err) == false {
 					return nil, err
-				} else {
-					log.Printf("Skipping dependency %s:  %s", dep.Address, err)
-					continue
 				}
+				log.Printf("Skipping dependency %s:  %s", dep.Address, err)
+				continue
 			}
 			bindmounts = append(bindmounts, localpath)
-
 		}
 
 		fmt.Fprintf(&content, "echo \"deb %s%s %s", forceTrusted, dep.Address, targetDist)

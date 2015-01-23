@@ -14,7 +14,7 @@ type BuildUseCaseSuite struct {
 	aptDeps         *AptDepsManagerStub
 	builder         *DebianBuilderStub
 	packageArchiver *PackageArchiverStub
-	localApt        *AptRepositoryStub
+	localApt        *aptRepositoryStub
 	history         *HistoryStub
 	dsc             deb.SourceControlFile
 	distConfig      *UserDistSupportConfigStub
@@ -26,12 +26,6 @@ func Test(t *testing.T) { TestingT(t) }
 
 func (s *BuildUseCaseSuite) TestBuildDebianizedGit(c *C) {
 	r, err := s.x.BuildDebianizedGit("", nil)
-	c.Check(r, IsNil)
-	c.Check(err, ErrorMatches, ".* is not yet implemented")
-}
-
-func (s *BuildUseCaseSuite) TestBuildAutobuildSource(c *C) {
-	r, err := s.x.BuildAutobuildSource(AutobuildSourcePackage{}, nil)
 	c.Check(r, IsNil)
 	c.Check(err, ErrorMatches, ".* is not yet implemented")
 }
@@ -72,7 +66,7 @@ func (s *BuildUseCaseSuite) SetUpTest(c *C) {
 
 	s.builder.InitDistribution("unstable", deb.Amd64, nil)
 
-	s.localApt = &AptRepositoryStub{}
+	s.localApt = &aptRepositoryStub{}
 	s.localApt.AddDistribution("unstable", deb.Amd64)
 	s.history = &HistoryStub{}
 	s.distConfig = &UserDistSupportConfigStub{

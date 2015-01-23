@@ -10,15 +10,14 @@ import (
 	deb "../"
 )
 
-type AutobuildSourcePackage struct{}
-
+// History represents a persistent history of build packages.
 type History interface {
 	Append(deb.SourcePackageRef)
 	Get() []deb.SourcePackageRef
 	RemoveFront(deb.SourcePackageRef)
 }
 
-// Builds a deb.SourcePackage and return the result. If a io.Writer is
+// BuildPackage builds a deb.SourcePackage and return the result. If a io.Writer is
 // passed, the build process output will be copied to it.
 func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (*BuildResult, error) {
 	a, err := x.archiver.ArchiveSource(s)
@@ -95,7 +94,7 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 		Deps:          deps,
 		Dest:          dest,
 	}, buildOut)
-	var archErr error = nil
+	var archErr error
 	if buildRes != nil {
 		buildRes, archErr = x.archiver.ArchiveBuildResult(*buildRes)
 	}
@@ -116,22 +115,18 @@ func (x *Interactor) BuildPackage(s deb.SourceControlFile, buildOut io.Writer) (
 	return buildRes, err
 }
 
-// Builds debian package from a Debianized Git repository.
+// BuildDebianizedGit builds a debian package from a Debianized Git repository.
 func (x *Interactor) BuildDebianizedGit(path string, buildOut io.Writer) (*BuildResult, error) {
 	return nil, deb.NotYetImplemented()
 }
 
-//Builds a package from an autobuild ( http://github.com/jessevdk/autobuild ) source package.
-func (x *Interactor) BuildAutobuildSource(p AutobuildSourcePackage, buildOut io.Writer) (*BuildResult, error) {
-	return nil, deb.NotYetImplemented()
-}
-
-// Returns the build result of the last built of the given source package
+// GetBuildResult returns the build result of the last built of the given source package
 func (x *Interactor) GetBuildResult(s deb.SourcePackageRef) (*BuildResult, error) {
 	return x.archiver.GetBuildResult(s)
 }
 
-// Returns the deb.SourcePackageRef of the last succesfull build of the package user
+// GetLastSuccesfullUserBuild returns the deb.SourcePackageRef of the
+// last succesfull build
 func (x *Interactor) GetLastSuccesfullUserBuild() *deb.SourcePackageRef {
 	successfulls := x.history.Get()
 	if len(successfulls) == 0 {
