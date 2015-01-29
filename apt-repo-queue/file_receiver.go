@@ -11,8 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	deb ".."
 	"gopkg.in/fsnotify.v1"
+
+	deb ".."
 )
 
 type QueueFileReference struct {
@@ -159,6 +160,15 @@ func (r *NotifyFileReceiver) handleEvent(ev fsnotify.Event) error {
 		case strings.HasSuffix(ev.Name, ".diff.gz"):
 			break
 		case strings.HasSuffix(ev.Name, ".tar.gz"):
+			break
+		default:
+			return nil
+		}
+	case ".xz":
+		switch {
+		case strings.HasSuffix(ev.Name, ".orig.tar.xz"):
+			break
+		case strings.HasSuffix(ev.Name, ".tar.xz"):
 			break
 		default:
 			return nil
